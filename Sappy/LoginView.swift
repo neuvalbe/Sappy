@@ -21,6 +21,7 @@ struct LoginView: View {
     @State private var selectedCountry: String = "Select Country"
     @State private var strokeEnd: CGFloat = 0.0
     @State private var showElements = false
+    @State private var showSappyAuth = false
     
     let countries = [
         "United States", "United Kingdom", "Canada", "Australia",
@@ -133,7 +134,9 @@ struct LoginView: View {
                             
                             // Custom Sappy Auth Button
                             Button(action: {
-                                handleAuthentication()
+                                let generator = UIImpactFeedbackGenerator(style: .medium)
+                                generator.impactOccurred()
+                                showSappyAuth = true
                             }) {
                                 HStack(spacing: 12) {
                                     SappyLogoShape()
@@ -187,6 +190,9 @@ struct LoginView: View {
                     .transition(.opacity.combined(with: .offset(y: 20)))
                 }
             }
+        }
+        .sheet(isPresented: $showSappyAuth) {
+            SappyAuthView(appState: $appState)
         }
         .onAppear {
             if hasCompletedFirstSignUp {

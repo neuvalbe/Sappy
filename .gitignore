@@ -1,0 +1,21 @@
+# Xcode user-specific data (signing, breakpoints, UI state)
+*.xcuserdata/
+*.xcuserstate
+xcuserdata/
+
+# Xcode build artifacts
+DerivedData/
+build/
+*.xccheckout
+*.moved-aside
+
+# macOS system files
+.DS_Store
+*.swp
+*~
+
+# Temporary files
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM

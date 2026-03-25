@@ -32,16 +32,22 @@
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		0E7DF4462F733C4D00A431C9 /* Sappy */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = Sappy;
 			sourceTree = "<group>";
 		};
 		0E7DF4542F733C4E00A431C9 /* SappyTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = SappyTests;
 			sourceTree = "<group>";
 		};
 		0E7DF45E2F733C4E00A431C9 /* SappyUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = SappyUITests;
 			sourceTree = "<group>";
 		};
@@ -111,8 +117,6 @@
 				0E7DF4462F733C4D00A431C9 /* Sappy */,
 			);
 			name = Sappy;
-			packageProductDependencies = (
-			);
 			productName = Sappy;
 			productReference = 0E7DF4442F733C4D00A431C9 /* Sappy.app */;
 			productType = "com.apple.product-type.application";
@@ -134,8 +138,6 @@
 				0E7DF4542F733C4E00A431C9 /* SappyTests */,
 			);
 			name = SappyTests;
-			packageProductDependencies = (
-			);
 			productName = SappyTests;
 			productReference = 0E7DF4512F733C4E00A431C9 /* SappyTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
@@ -157,8 +159,6 @@
 				0E7DF45E2F733C4E00A431C9 /* SappyUITests */,
 			);
 			name = SappyUITests;
-			packageProductDependencies = (
-			);
 			productName = SappyUITests;
 			productReference = 0E7DF45B2F733C4E00A431C9 /* SappyUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
@@ -398,6 +398,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UIAppFonts = "DelaGothicOne-Regular.ttf";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -442,6 +443,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UIAppFonts = "DelaGothicOne-Regular.ttf";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;

@@ -31,7 +31,7 @@ struct TrackingView: View {
                     ZStack {
                         Color.white.opacity(0.001) // Forces fullscreen touch detection
                         Text("happy.")
-                            .font(.custom("Chalkboard SE", size: 48))
+                            .font(.custom("DelaGothicOne-Regular", size: 48))
                             .fontWeight(.light)
                             .italic()
                             .kerning(1.5)
@@ -43,7 +43,7 @@ struct TrackingView: View {
                     
                     // CENTER
                     Text("How are you feeling?")
-                        .font(.custom("Chalkboard SE", size: 16))
+                        .font(.custom("DelaGothicOne-Regular", size: 16))
                         .foregroundColor(Color.black.opacity(0.3))
                         .kerning(1.2)
                         .padding(.vertical, 20)
@@ -52,7 +52,7 @@ struct TrackingView: View {
                     ZStack {
                         Color.white.opacity(0.001)
                         Text("sad.")
-                            .font(.custom("Chalkboard SE", size: 48))
+                            .font(.custom("DelaGothicOne-Regular", size: 48))
                             .fontWeight(.light)
                             .italic()
                             .kerning(1.5)
@@ -105,7 +105,7 @@ struct FeedbackView: View {
     var body: some View {
         VStack(spacing: 24) {
             Text(mode == .happy ? "That's wonderful." : "Take a deep breath.")
-                .font(.custom("Chalkboard SE", size: 34))
+                .font(.custom("DelaGothicOne-Regular", size: 34))
                 .fontWeight(.light)
                 .kerning(1.2)
                 .foregroundColor(.black.opacity(0.9))
@@ -114,7 +114,7 @@ struct FeedbackView: View {
                 .animation(.easeOut(duration: 1.0).delay(0.2), value: isVisible)
             
             Text(mode == .happy ? "Keep riding the wave.\nThe world is yours today." : "It is completely okay to feel this way.\nTomorrow is a new start.")
-                .font(.custom("Chalkboard SE", size: 18))
+                .font(.custom("DelaGothicOne-Regular", size: 18))
                 .foregroundColor(.black.opacity(0.5))
                 .kerning(0.8)
                 .multilineTextAlignment(.center)

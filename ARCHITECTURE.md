@@ -120,19 +120,19 @@ const [appState, setAppState] = useState('login');
 ### Typography
 | Element | Font | Size | Weight | Style |
 |---|---|---|---|---|
-| App title "sappy" | Chalkboard SE | 32px | Bold | kerning: 4 |
-| Subtitle | Chalkboard SE | 16px | Regular | — |
-| Country label | Chalkboard SE | 18px | Semibold | — |
-| Button text | Chalkboard SE | 16-17px | Bold/Semibold | — |
-| Disclaimer | Chalkboard SE | 12px | Regular | — |
-| Mood words ("happy.", "sad.") | Chalkboard SE | 48px | Light | italic, kerning: 1.5 |
-| Feedback headline | Chalkboard SE | 34px | Light | kerning: 1.2 |
-| Feedback body | Chalkboard SE | 18px | Regular | kerning: 0.8, lineSpacing: 6 |
-| Center label | Chalkboard SE | 16px | Regular | kerning: 1.2 |
+| App title "sappy" | Dela Gothic One | 32px | Bold | kerning: 4 |
+| Subtitle | Dela Gothic One | 16px | Regular | — |
+| Country label | Dela Gothic One | 18px | Semibold | — |
+| Button text | Dela Gothic One | 16-17px | Bold/Semibold | — |
+| Disclaimer | Dela Gothic One | 12px | Regular | — |
+| Mood words ("happy.", "sad.") | Dela Gothic One | 48px | Light | italic, kerning: 1.5 |
+| Feedback headline | Dela Gothic One | 34px | Light | kerning: 1.2 |
+| Feedback body | Dela Gothic One | 18px | Regular | kerning: 0.8, lineSpacing: 6 |
+| Center label | Dela Gothic One | 16px | Regular | kerning: 1.2 |
 
 ### React Typography Mapping
 ```js
-// Universal Font: Chalkboard SE. Fallbacks on Android could be 'Comic Sans MS' or similar casual fonts.
+// Universal Font: Dela Gothic One.
 ```
 
 ### Corner Radius

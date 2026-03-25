@@ -49,13 +49,13 @@ struct LoginView: View {
                 if showElements {
                     VStack(spacing: 8) {
                         Text("sappy")
-                            .font(.custom("Chalkboard SE", size: 32))
+                            .font(.custom("DelaGothicOne-Regular", size: 32))
                             .fontWeight(.bold)
                             .kerning(4)
                             .foregroundColor(Color(white: 0.1))
                         
                         Text("Are you happy or sad?")
-                            .font(.custom("Chalkboard SE", size: 16))
+                            .font(.custom("DelaGothicOne-Regular", size: 16))
                             .foregroundColor(Color.black.opacity(0.5))
                             .padding(.bottom, 8)
                     }
@@ -71,7 +71,7 @@ struct LoginView: View {
                             // --- STEP 1: Country Picker ---
                             Text("Where are you joining from?")
                                 .foregroundColor(Color.black.opacity(0.8))
-                                .font(.custom("Chalkboard SE", size: 18))
+                                .font(.custom("DelaGothicOne-Regular", size: 18))
                                 .fontWeight(.semibold)
                                 .padding(.bottom, 8)
                             
@@ -87,12 +87,12 @@ struct LoginView: View {
                                 HStack {
                                     Text(selectedCountry)
                                         .foregroundColor(selectedCountry == "Select Country" ? .black.opacity(0.4) : .black)
-                                        .font(.custom("Chalkboard SE", size: 16))
+                                        .font(.custom("DelaGothicOne-Regular", size: 16))
                                         .fontWeight(.semibold)
                                     Spacer()
                                     Image(systemName: "chevron.up.chevron.down")
                                         .foregroundColor(.black.opacity(0.3))
-                                        .font(.custom("Chalkboard SE", size: 12))
+                                        .font(.custom("DelaGothicOne-Regular", size: 12))
                                         .fontWeight(.bold)
                                 }
                                 .padding(.horizontal, 20)
@@ -116,7 +116,7 @@ struct LoginView: View {
                                 }
                             }) {
                                 Text("Continue")
-                                    .font(.custom("Chalkboard SE", size: 16))
+                                    .font(.custom("DelaGothicOne-Regular", size: 16))
                                     .fontWeight(.bold)
                                     .foregroundColor(.white)
                                     .frame(maxWidth: .infinity)
@@ -141,7 +141,7 @@ struct LoginView: View {
                                         .frame(width: 14, height: 18)
                                     
                                     Text(hasCompletedFirstSignUp ? "Sign In to Sappy" : "Continue with Sappy")
-                                        .font(.custom("Chalkboard SE", size: 17))
+                                        .font(.custom("DelaGothicOne-Regular", size: 17))
                                         .fontWeight(.semibold)
                                         .foregroundColor(.white)
                                 }
@@ -177,7 +177,7 @@ struct LoginView: View {
                         
                         // Disclaimer
                         Text("By continuing, you agree to Sappy's Terms & Conditions and Privacy Policy.")
-                            .font(.custom("Chalkboard SE", size: 12))
+                            .font(.custom("DelaGothicOne-Regular", size: 12))
                             .multilineTextAlignment(.center)
                             .padding(.top, 16)
                             .padding(.horizontal, 20)

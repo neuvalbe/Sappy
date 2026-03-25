@@ -2,20 +2,35 @@
 //  ContentView.swift
 //  Sappy
 //
-//  Created by Neuval Studio on 24/03/2026.
-//
 
 import SwiftUI
 
+// MARK: - App State
+enum AppState {
+    case splash
+    case login
+    case tracking
+}
+
+// MARK: - Main ContentView
 struct ContentView: View {
+    @State private var appState: AppState = .login
+    
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        ZStack {
+            switch appState {
+            case .splash:
+                SplashView(appState: $appState)
+                    .transition(.opacity)
+            case .login:
+                LoginView(appState: $appState)
+                    .transition(.opacity)
+            case .tracking:
+                TrackingView()
+                    .transition(.opacity)
+            }
         }
-        .padding()
+        .animation(.easeInOut(duration: 0.8), value: appState)
     }
 }
 

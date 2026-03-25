@@ -25,9 +25,9 @@ Splash (`AppState.splash`) exists in enum but is bypassed; initial state is `.lo
 
 ### 4. Design Tokens
 - **Background**: Pure white (`#FFFFFF`)
-- **Ambient glow**: Two radial circles, `rgba(255,51,51,0.08)` and `rgba(128,0,0,0.06)`, animated drift
+
 - **Logo stroke**: `Color(white: 0.1)` ≈ `#1A1A1A`, 6pt stroke, round caps/joins
-- **Typography**: System fonts — `.rounded` for headings, `.serif` for body
+- **Typography**: Chalkboard SE universally
 - **Button style**: `SquishableButtonStyle` — 0.96 scale on press, 0.2s ease-out
 - **Haptics**: `UIImpactFeedbackGenerator` (.medium, .rigid), `UINotificationFeedbackGenerator` (.success, .error)
 

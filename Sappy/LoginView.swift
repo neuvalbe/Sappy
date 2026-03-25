@@ -48,13 +48,14 @@ struct LoginView: View {
                 
                 if showElements {
                     VStack(spacing: 8) {
-                        Text("SAPPY")
-                            .font(.system(size: 32, weight: .bold, design: .rounded))
+                        Text("sappy")
+                            .font(.custom("Chalkboard SE", size: 32))
+                            .fontWeight(.bold)
                             .kerning(4)
                             .foregroundColor(Color(white: 0.1))
                         
                         Text("Are you happy or sad?")
-                            .font(.system(size: 16, weight: .regular, design: .serif))
+                            .font(.custom("Chalkboard SE", size: 16))
                             .foregroundColor(Color.black.opacity(0.5))
                             .padding(.bottom, 8)
                     }
@@ -70,7 +71,8 @@ struct LoginView: View {
                             // --- STEP 1: Country Picker ---
                             Text("Where are you joining from?")
                                 .foregroundColor(Color.black.opacity(0.8))
-                                .font(.system(size: 18, weight: .semibold))
+                                .font(.custom("Chalkboard SE", size: 18))
+                                .fontWeight(.semibold)
                                 .padding(.bottom, 8)
                             
                             Menu {
@@ -85,11 +87,13 @@ struct LoginView: View {
                                 HStack {
                                     Text(selectedCountry)
                                         .foregroundColor(selectedCountry == "Select Country" ? .black.opacity(0.4) : .black)
-                                        .font(.system(size: 16, weight: .semibold))
+                                        .font(.custom("Chalkboard SE", size: 16))
+                                        .fontWeight(.semibold)
                                     Spacer()
                                     Image(systemName: "chevron.up.chevron.down")
                                         .foregroundColor(.black.opacity(0.3))
-                                        .font(.system(size: 12, weight: .bold))
+                                        .font(.custom("Chalkboard SE", size: 12))
+                                        .fontWeight(.bold)
                                 }
                                 .padding(.horizontal, 20)
                                 .frame(height: 56)
@@ -112,7 +116,8 @@ struct LoginView: View {
                                 }
                             }) {
                                 Text("Continue")
-                                    .font(.system(size: 16, weight: .bold))
+                                    .font(.custom("Chalkboard SE", size: 16))
+                                    .fontWeight(.bold)
                                     .foregroundColor(.white)
                                     .frame(maxWidth: .infinity)
                                     .frame(height: 56)
@@ -136,7 +141,8 @@ struct LoginView: View {
                                         .frame(width: 14, height: 18)
                                     
                                     Text(hasCompletedFirstSignUp ? "Sign In to Sappy" : "Continue with Sappy")
-                                        .font(.system(size: 17, weight: .semibold))
+                                        .font(.custom("Chalkboard SE", size: 17))
+                                        .fontWeight(.semibold)
                                         .foregroundColor(.white)
                                 }
                                 .frame(maxWidth: .infinity)
@@ -171,8 +177,7 @@ struct LoginView: View {
                         
                         // Disclaimer
                         Text("By continuing, you agree to Sappy's Terms & Conditions and Privacy Policy.")
-                            .font(.system(size: 12, weight: .regular))
-                            .foregroundColor(Color.black.opacity(0.4))
+                            .font(.custom("Chalkboard SE", size: 12))
                             .multilineTextAlignment(.center)
                             .padding(.top, 16)
                             .padding(.horizontal, 20)

@@ -110,8 +110,7 @@ const [appState, setAppState] = useState('login');
 | `text.secondary` | `rgba(0,0,0,0.5)` | Subtitles |
 | `text.tertiary` | `rgba(0,0,0,0.4)` | Disclaimers, labels |
 | `text.quaternary` | `rgba(0,0,0,0.3)` | Hint text, chevrons |
-| `ambient.red1` | `rgba(255,51,51,0.08)` | Large background circle |
-| `ambient.red2` | `rgba(128,0,0,0.06)` | Small background circle |
+
 | `button.primary.bg` | `#1A1A1A` | Sign-in button fill |
 | `button.primary.text` | `#FFFFFF` | Sign-in button text |
 | `button.disabled.bg` | `rgba(0,0,0,0.2)` | Disabled continue button |
@@ -121,21 +120,19 @@ const [appState, setAppState] = useState('login');
 ### Typography
 | Element | Font | Size | Weight | Style |
 |---|---|---|---|---|
-| App title "SAPPY" | System Rounded | 32px | Bold | kerning: 4 |
-| Subtitle | System Serif | 16px | Regular | — |
-| Country label | System | 18px | Semibold | — |
-| Button text | System | 16-17px | Bold/Semibold | — |
-| Disclaimer | System | 12px | Regular | — |
-| Mood words ("happy.", "sad.") | System Serif | 48px | Light | italic, kerning: 1.5 |
-| Feedback headline | System Serif | 34px | Light | kerning: 1.2 |
-| Feedback body | System Serif | 18px | Regular | kerning: 0.8, lineSpacing: 6 |
-| Center label | System Serif | 16px | Regular | kerning: 1.2 |
+| App title "sappy" | Chalkboard SE | 32px | Bold | kerning: 4 |
+| Subtitle | Chalkboard SE | 16px | Regular | — |
+| Country label | Chalkboard SE | 18px | Semibold | — |
+| Button text | Chalkboard SE | 16-17px | Bold/Semibold | — |
+| Disclaimer | Chalkboard SE | 12px | Regular | — |
+| Mood words ("happy.", "sad.") | Chalkboard SE | 48px | Light | italic, kerning: 1.5 |
+| Feedback headline | Chalkboard SE | 34px | Light | kerning: 1.2 |
+| Feedback body | Chalkboard SE | 18px | Regular | kerning: 0.8, lineSpacing: 6 |
+| Center label | Chalkboard SE | 16px | Regular | kerning: 1.2 |
 
 ### React Typography Mapping
 ```js
-// System Rounded → use 'SF Pro Rounded' on iOS, 'Product Sans' or 'Nunito' on Android
-// System Serif → 'New York' on iOS, 'Noto Serif' or 'Merriweather' on Android
-// System Default → 'SF Pro Display' on iOS, 'Roboto' on Android
+// Universal Font: Chalkboard SE. Fallbacks on Android could be 'Comic Sans MS' or similar casual fonts.
 ```
 
 ### Corner Radius
@@ -156,7 +153,7 @@ const [appState, setAppState] = useState('login');
 ### 5.1 Login Screen (`LoginView.swift`)
 
 #### Layout (top to bottom)
-1. **Background**: Pure white with two animated ambient red circles
+1. **Background**: Pure white
 2. **Logo**: `SappyLogoShape` — 80×80, stroked in near-black, with draw-on animation
 3. **Title block** (appears after logo draws on):
    - "SAPPY" — bold rounded, kerning 4
@@ -175,17 +172,7 @@ const [appState, setAppState] = useState('login');
 
 6. **Disclaimer text** at bottom
 
-#### Ambient Background Animation
-Two blurred circles drift continuously:
-```
-Circle 1: 400×400, blur: 80, color: rgba(255,51,51,0.08)
-  - Animates between offset(-60,-80) ↔ offset(60,80)
 
-Circle 2: 300×300, blur: 80, color: rgba(128,0,0,0.06)
-  - Animates between offset(40,80) ↔ offset(-40,-80)
-
-Duration: 10 seconds, easeInOut, repeats forever, autoreverses
-```
 
 #### Logo Draw-On Animation
 ```
@@ -228,11 +215,7 @@ Full-screen split into two tap zones separated by a center label:
 - Tapping either word triggers `.rigid` haptic and transitions to `FeedbackView`
 - Transition: 0.8s easeIn opacity
 
-#### Ambient Background
-Same as Login Screen but with reactive scaling:
-- **Before selection**: Same as login (400×400 & 300×300, same opacities)
-- **After selection**: Circles expand (800×800 & 600×600), blur increases to 120, opacities shift to 0.02 and 0.2
-- Transition: 2.0s easeInOut
+
 
 ---
 
@@ -303,7 +286,7 @@ const SappyLogo = ({ size = 80, color = '#191919' }) => (
 
 | Animation | Duration | Easing | Delay | Notes |
 |---|---|---|---|---|
-| Ambient circle drift | 10s | easeInOut | 0 | repeats forever, autoreverses |
+
 | Logo stroke draw-on | 1.5s | easeOut | 0 | strokeEnd: 0→1 |
 | Title/auth fade in | 1.0s | easeOut | 1.2s | opacity + offset(y: 20→0) |
 | Auth step transition | spring | response: 0.5, damping: 0.7 | 0 | — |
@@ -311,7 +294,7 @@ const SappyLogo = ({ size = 80, color = '#191919' }) => (
 | Mood text fade in | 1.5s | easeIn | 0 | — |
 | Mood text breathing | 4.0s | easeInOut | 0 | scale 0.98↔1.02, forever |
 | Mood selection | 0.8s | easeIn | 0 | opacity transition |
-| Ambient expand on select | 2.0s | easeInOut | 0 | size + blur + opacity |
+
 | Feedback headline | 1.0s | easeOut | 0.2s | opacity + y offset |
 | Feedback body | 1.0s | easeOut | 1.2s | opacity + y offset |
 | Feedback view entry | 1.5s | easeIn | 0.5s | opacity |

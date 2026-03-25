@@ -13,7 +13,6 @@ enum Mood {
 
 struct TrackingView: View {
     @State private var showText = false
-    @State private var isAnimating = false
     @State private var selectedMood: Mood? = nil
     @State private var breathingText = false
     
@@ -22,26 +21,7 @@ struct TrackingView: View {
             // Elegant pristine white background
             Color.white.ignoresSafeArea()
             
-            // Minimalistic elegant red ambient response
-            ZStack {
-                Circle()
-                    .fill(Color(red: 1.0, green: 0.2, blue: 0.2).opacity(selectedMood != nil ? 0.02 : 0.08))
-                    .frame(width: selectedMood != nil ? 800 : 400, height: selectedMood != nil ? 800 : 400)
-                    .blur(radius: selectedMood != nil ? 120 : 80)
-                    .offset(x: isAnimating ? -60 : 60, y: isAnimating ? -80 : 80)
-                
-                Circle()
-                    .fill(Color(red: 0.5, green: 0.0, blue: 0.0).opacity(selectedMood != nil ? 0.2 : 0.06))
-                    .frame(width: selectedMood != nil ? 600 : 300, height: selectedMood != nil ? 600 : 300)
-                    .blur(radius: selectedMood != nil ? 120 : 80)
-                    .offset(x: isAnimating ? 40 : -40, y: isAnimating ? 80 : -80)
-            }
-            .animation(.easeInOut(duration: 2.0), value: selectedMood)
-            .onAppear {
-                withAnimation(.easeInOut(duration: 10).repeatForever(autoreverses: true)) {
-                    isAnimating.toggle()
-                }
-            }
+
             
             if selectedMood == nil {
                 // Typographic split screen interaction
@@ -51,7 +31,8 @@ struct TrackingView: View {
                     ZStack {
                         Color.white.opacity(0.001) // Forces fullscreen touch detection
                         Text("happy.")
-                            .font(.system(size: 48, weight: .light, design: .serif))
+                            .font(.custom("Chalkboard SE", size: 48))
+                            .fontWeight(.light)
                             .italic()
                             .kerning(1.5)
                             .foregroundColor(Color.black.opacity(0.85))
@@ -62,7 +43,7 @@ struct TrackingView: View {
                     
                     // CENTER
                     Text("How are you feeling?")
-                        .font(.system(size: 16, weight: .regular, design: .serif))
+                        .font(.custom("Chalkboard SE", size: 16))
                         .foregroundColor(Color.black.opacity(0.3))
                         .kerning(1.2)
                         .padding(.vertical, 20)
@@ -71,7 +52,8 @@ struct TrackingView: View {
                     ZStack {
                         Color.white.opacity(0.001)
                         Text("sad.")
-                            .font(.system(size: 48, weight: .light, design: .serif))
+                            .font(.custom("Chalkboard SE", size: 48))
+                            .fontWeight(.light)
                             .italic()
                             .kerning(1.5)
                             .foregroundColor(Color.black.opacity(0.85))
@@ -123,7 +105,8 @@ struct FeedbackView: View {
     var body: some View {
         VStack(spacing: 24) {
             Text(mode == .happy ? "That's wonderful." : "Take a deep breath.")
-                .font(.system(size: 34, weight: .light, design: .serif))
+                .font(.custom("Chalkboard SE", size: 34))
+                .fontWeight(.light)
                 .kerning(1.2)
                 .foregroundColor(.black.opacity(0.9))
                 .opacity(isVisible ? 1 : 0)
@@ -131,7 +114,7 @@ struct FeedbackView: View {
                 .animation(.easeOut(duration: 1.0).delay(0.2), value: isVisible)
             
             Text(mode == .happy ? "Keep riding the wave.\nThe world is yours today." : "It is completely okay to feel this way.\nTomorrow is a new start.")
-                .font(.system(size: 18, weight: .regular, design: .serif))
+                .font(.custom("Chalkboard SE", size: 18))
                 .foregroundColor(.black.opacity(0.5))
                 .kerning(0.8)
                 .multilineTextAlignment(.center)

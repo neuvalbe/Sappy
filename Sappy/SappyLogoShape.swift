@@ -2,20 +2,51 @@
 //  SappyLogoShape.swift
 //  Sappy
 //
+//  Created by Neuval Studio on 24/03/2026.
+//
 
 import SwiftUI
 
 // MARK: - Sappy Logo Vector Shape
-// Converted from SVG path data. Supports partial drawing of left arc, colon, and right arc
-// for independent animation in the splash screen.
+
+/// A SwiftUI `Shape` that renders the Sappy `):)` logo from raw cubic Bézier path data.
+///
+/// ## Coordinate System
+/// The path data originates from an SVG export with a viewBox roughly spanning
+/// `(202.6, 198.5)` to `(306.5, 332.4)` — a `104×134` unit region.
+/// The `path(in:)` method normalizes these coordinates into the provided `rect`,
+/// applying uniform scaling and centering.
+///
+/// ## Three Independently Drawable Sub-Paths
+/// The logo is composed of three elements that can be toggled independently,
+/// enabling partial drawing for animation:
+///
+/// | Flag        | Sub-Path       | Visual        |
+/// |-------------|----------------|---------------|
+/// | `drawRight` | Right arc      | `)` — happy   |
+/// | `drawColon` | Two dots       | `:` — eyes    |
+/// | `drawLeft`  | Left arc       | `(` — sad     |
+///
+/// ### Composition Examples
+/// - **Full logo** `):(`: `drawLeft: true, drawColon: true, drawRight: true`
+/// - **Happy face** `:)`: `drawLeft: false, drawColon: true, drawRight: true`
+/// - **Sad face** `:(`: `drawLeft: true, drawColon: true, drawRight: false`
+///
+/// ## Static Bounds Contract
+/// `fullBounds` is hardcoded to the union bounding box of all three sub-paths.
+/// This ensures that partial compositions (e.g., colon-only) are positioned
+/// identically to the full logo — critical for the `TrackingView` split animation
+/// where faces must share the same spatial origin before separating.
 struct SappyLogoShape: Shape {
     var drawLeft: Bool = true
     var drawColon: Bool = true
     var drawRight: Bool = true
-    
+
     func path(in rect: CGRect) -> Path {
         var path = Path()
-        
+
+        // MARK: Right Arc `)` — Happy
+
         if drawRight {
             path.move(to: CGPoint(x: 306.548492, y: 264.841003))
             path.addCurve(to: CGPoint(x: 305.561493, y: 247.92099), control1: CGPoint(x: 306.548492, y: 263.431), control2: CGPoint(x: 306.407501, y: 261.174988))
@@ -41,7 +72,10 @@ struct SappyLogoShape: Shape {
             path.closeSubpath()
         }
 
+        // MARK: Colon `:` — Eyes
+
         if drawColon {
+            // Upper dot
             path.move(to: CGPoint(x: 264.8125, y: 256.945007))
             path.addCurve(to: CGPoint(x: 260.018494, y: 250.458984), control1: CGPoint(x: 264.8125, y: 256.098999), control2: CGPoint(x: 264.671509, y: 255.252991))
             path.addCurve(to: CGPoint(x: 249.725494, y: 251.869019), control1: CGPoint(x: 258.608521, y: 250.177002), control2: CGPoint(x: 256.916504, y: 249.894989))
@@ -51,6 +85,7 @@ struct SappyLogoShape: Shape {
             path.addCurve(to: CGPoint(x: 264.8125, y: 256.945007), control1: CGPoint(x: 264.107483, y: 259.906006), control2: CGPoint(x: 264.8125, y: 258.496002))
             path.closeSubpath()
 
+            // Lower dot
             path.move(to: CGPoint(x: 264.8125, y: 301.501007))
             path.addCurve(to: CGPoint(x: 260.018494, y: 295.015015), control1: CGPoint(x: 264.8125, y: 300.654999), control2: CGPoint(x: 264.671509, y: 299.80899))
             path.addCurve(to: CGPoint(x: 249.725494, y: 296.424988), control1: CGPoint(x: 258.608521, y: 294.733002), control2: CGPoint(x: 256.916504, y: 294.450989))
@@ -60,6 +95,8 @@ struct SappyLogoShape: Shape {
             path.addCurve(to: CGPoint(x: 264.8125, y: 301.501007), control1: CGPoint(x: 264.107483, y: 304.602997), control2: CGPoint(x: 264.8125, y: 303.192993))
             path.closeSubpath()
         }
+
+        // MARK: Left Arc `(` — Sad
 
         if drawLeft {
             path.move(to: CGPoint(x: 227.447495, y: 264.841003))
@@ -86,25 +123,29 @@ struct SappyLogoShape: Shape {
             path.closeSubpath()
         }
 
-        // We MUST use the static bounds of the full logo so they all share the exact same transform
+        // MARK: Normalize to Target Rect
+
+        // Static union bounding box of ALL sub-paths. This MUST remain constant
+        // regardless of which flags are active, so partial compositions align
+        // spatially with the full logo.
         let fullBounds = CGRect(x: 202.6, y: 198.5, width: 104.0, height: 134.0)
-        
+
         let scaleX = rect.width / fullBounds.width
         let scaleY = rect.height / fullBounds.height
         let scale = min(scaleX, scaleY)
-        
+
         let transform = CGAffineTransform(scaleX: scale, y: scale)
             .translatedBy(x: -fullBounds.minX, y: -fullBounds.minY)
-        
+
         path = path.applying(transform)
-        
-        // Use the transformed full bounds to perfectly center inside the given rect
+
+        // Center the normalized path within the target rect
         let finalBounds = fullBounds.applying(transform)
         let shiftX = (rect.width - finalBounds.width) / 2.0
         let shiftY = (rect.height - finalBounds.height) / 2.0
-        
+
         path = path.applying(CGAffineTransform(translationX: shiftX, y: shiftY))
-        
+
         return path
     }
 }

@@ -34,31 +34,36 @@ The brand identity is the `):)` logo — a sad face `):(` and happy face `(:)` m
 
 ```
 Sappy/
-├── SappyApp.swift          # @main entry point
-├── ContentView.swift       # Root view — state router
-├── LoginView.swift         # Authentication (country + sign-in)
-├── TrackingView.swift      # Mood selection + feedback response
-├── SappyLogoShape.swift    # SwiftUI Shape — logo vector paths
-├── SplashView.swift        # ARCHIVED — splash animation (inactive)
-├── SappyLogo.svg           # Black stroke logo export (80×80)
-└── SappyLogo_Red.svg       # Red gradient logo export (256×256)
+├── SappyApp.swift            # @main entry point, custom font registration
+├── SappyDesignTokens.swift   # Shared types (AppState, Mood), design tokens, SquishableButtonStyle
+├── ContentView.swift         # Root state router — crossfades between login and tracking
+├── LoginView.swift           # 2-step auth: country picker → Sign In (Sappy / Apple)
+├── SappyAuthView.swift       # Email/password auth sheet (sign-up + sign-in)
+├── SappyLegalView.swift      # Terms of Service & Privacy Policy sheet
+├── TrackingView.swift        # Cinematic mood selection → feedback response
+├── SappyLogoShape.swift      # SwiftUI Shape — SVG path data for ):) logo
+├── SplashView.swift          # ARCHIVED — face-merge splash animation (bypassed)
+├── SappyLogo.svg             # Black stroke logo export (80×80)
+└── SappyLogo_Red.svg         # Red gradient logo export (256×256)
 ```
 
 ### React Equivalent Structure
 ```
 src/
-├── App.jsx                 # Root — state router (replaces ContentView)
+├── App.jsx                   # Root — state router (replaces ContentView)
+├── tokens.js                 # Design tokens from SappyDesignTokens
 ├── screens/
-│   ├── LoginScreen.jsx     # Login flow
-│   └── TrackingScreen.jsx  # Mood selection + feedback
+│   ├── LoginScreen.jsx       # Login flow (country + auth)
+│   ├── AuthScreen.jsx        # Email/password auth modal
+│   ├── TrackingScreen.jsx    # Cinematic mood selection + feedback
+│   └── LegalScreen.jsx       # Terms & Privacy Policy
 ├── components/
-│   ├── SappyLogo.jsx       # SVG logo component
-│   ├── SquishableButton.jsx # Press-scale button
-│   └── FeedbackView.jsx    # Post-selection message
-├── assets/
-│   └── sappy-logo.svg      # Logo SVG file
-└── styles/
-    └── tokens.js           # Design tokens (colors, fonts, spacing)
+│   ├── SappyLogo.jsx         # SVG logo component
+│   ├── SquishableButton.jsx  # Press-scale button
+│   ├── SappyTextField.jsx    # Branded text input
+│   └── FeedbackView.jsx      # Post-selection message
+└── assets/
+    └── sappy-logo.svg        # Logo SVG file
 ```
 
 ---
@@ -68,9 +73,17 @@ src/
 ### AppState Enum
 ```
 enum AppState {
-    case splash   // Exists but bypassed (initial state is .login)
-    case login    // Login screen
-    case tracking // Mood selection → feedback
+    case splash   // Archived — bypassed (initial state is .login)
+    case login    // Authentication flow
+    case tracking // Cinematic mood selection → feedback
+}
+```
+
+### Mood Enum
+```
+enum Mood: String {
+    case happy = "happy"
+    case sad = "sad"
 }
 ```
 
@@ -80,71 +93,74 @@ enum AppState {
 │  LOGIN   │ ─────────────────>│ TRACKING │
 └─────────┘                    └──────────┘
                                      │
-                               mood selected
+                               cinematic entrance
                                      │
                                      ▼
                               ┌──────────────┐
-                              │ FEEDBACK VIEW│
-                              │ (inline)     │
+                              │ MOOD SELECT  │ ← split faces, breathing idle
                               └──────────────┘
-```
-
-### React Implementation
-```jsx
-const [appState, setAppState] = useState('login');
-
-// In App.jsx render:
-{appState === 'login' && <LoginScreen onAuth={() => setAppState('tracking')} />}
-{appState === 'tracking' && <TrackingScreen />}
+                                     │
+                                 tap face
+                                     │
+                                     ▼
+                              ┌──────────────┐
+                              │   FEEDBACK   │ ← counter, empathetic message
+                              └──────────────┘
+                                     │
+                               "change answer"
+                                     │
+                                     ▼
+                              ┌──────────────┐
+                              │ MOOD SELECT  │ ← spring reset
+                              └──────────────┘
 ```
 
 ---
 
 ## 4. Design System
 
-### Colors
-| Token | Hex | Usage |
-|---|---|---|
-| `background` | `#FFFFFF` | All screen backgrounds |
-| `text.primary` | `#1A1A1A` (`rgba(0,0,0,0.85)`) | Headlines, logo stroke |
-| `text.secondary` | `rgba(0,0,0,0.5)` | Subtitles |
-| `text.tertiary` | `rgba(0,0,0,0.4)` | Disclaimers, labels |
-| `text.quaternary` | `rgba(0,0,0,0.3)` | Hint text, chevrons |
+All tokens are defined in `SappyDesignTokens.swift` → `SappyDesign` namespace.
 
-| `button.primary.bg` | `#1A1A1A` | Sign-in button fill |
-| `button.primary.text` | `#FFFFFF` | Sign-in button text |
-| `button.disabled.bg` | `rgba(0,0,0,0.2)` | Disabled continue button |
-| `input.bg` | `rgba(0,0,0,0.04)` | Country picker background |
-| `input.border` | `rgba(0,0,0,0.1)` | Country picker border |
+### Colors
+| Token | Value | Usage |
+|---|---|---|
+| `textPrimary` | `Color(white: 0.1)` ≈ `#1A1A1A` | Headlines, logo stroke |
+| `textSecondaryOpacity` | `0.5` | Subtitles |
+| `textTertiaryOpacity` | `0.4` | Disclaimers, labels |
+| `textQuaternaryOpacity` | `0.3` | Hint text, chevrons |
+| `inputBackgroundOpacity` | `0.04` | Input field fill |
+| `inputBorderOpacity` | `0.1` | Input field border |
+| `disabledOpacity` | `0.2` | Disabled button fill |
+| `brandGradient` | `#FF3333 → #CC0000` | Selected mood faces |
 
 ### Typography
-| Element | Font | Size | Weight | Style |
-|---|---|---|---|---|
-| App title "sappy" | Dela Gothic One | 32px | Bold | kerning: 4 |
-| Subtitle | Dela Gothic One | 16px | Regular | — |
-| Country label | Dela Gothic One | 18px | Semibold | — |
-| Button text | Dela Gothic One | 16-17px | Bold/Semibold | — |
-| Disclaimer | Dela Gothic One | 12px | Regular | — |
-| Mood words ("happy.", "sad.") | Dela Gothic One | 48px | Light | italic, kerning: 1.5 |
-| Feedback headline | Dela Gothic One | 34px | Light | kerning: 1.2 |
-| Feedback body | Dela Gothic One | 18px | Regular | kerning: 0.8, lineSpacing: 6 |
-| Center label | Dela Gothic One | 16px | Regular | kerning: 1.2 |
+| Element | Size | Weight | Style |
+|---|---|---|---|
+| App title "sappy" | 32px | Bold | kerning: 4 |
+| Mood words ("happy.", "sad.") | 48px | Light | italic, kerning: 1.5 |
+| Feedback headline | 34px | Light | kerning: 1.2 |
+| Feedback body | 18px | Regular | kerning: 0.8, lineSpacing: 6 |
+| Center label | 16px | Regular | kerning: 1.2 |
+| Auth header | 28px | Regular | — |
+| Country/button text | 16-18px | Semibold/Bold | — |
+| Disclaimer | 11px | Regular | — |
 
-### React Typography Mapping
-```js
-// Universal Font: Dela Gothic One.
-```
+**Universal Font**: Dela Gothic One (bundled `DelaGothicOne-Regular.ttf`).
 
-### Corner Radius
-- Buttons: `16px` (continuous/squircle on iOS → standard `borderRadius` on React)
-- Input fields: `16px`
-
-### Spacing
-- Content horizontal padding: `32px`
-- Bottom padding: `60px`
-- Section spacing: `20px`
-- Element spacing within sections: `8px`
-- Button height: `56px`
+### Layout Constants
+| Token | Value | Usage |
+|---|---|---|
+| `buttonHeight` | 56px | All buttons and inputs |
+| `cornerRadius` | 16px | Buttons, inputs |
+| `horizontalPadding` | 32px | Auth screen content |
+| `bottomPadding` | 60px | Auth screen bottom |
+| `trackingFaceSize` | 80px | Face logo frame |
+| `trackingStrokeWidth` | 10px | Face stroke width |
+| `splitDistance` | 180px | Vertical split distance |
+| `selectedFaceOffset` | -180px | Selected face Y position |
+| `dismissedFaceOffset` | 500px | Dismissed face Y exit |
+| `selectedFaceScale` | 1.5× | Selected face scale |
+| `feedbackContentOffset` | 80px | Feedback Y below face |
 
 ---
 
@@ -154,86 +170,91 @@ const [appState, setAppState] = useState('login');
 
 #### Layout (top to bottom)
 1. **Background**: Pure white
-2. **Logo**: `SappyLogoShape` — 80×80, stroked in near-black, with draw-on animation
-3. **Title block** (appears after logo draws on):
-   - "SAPPY" — bold rounded, kerning 4
-   - "Are you happy or sad?" — serif italic subtitle
-4. **Spacer**
-5. **Auth section** (two steps):
+2. **Logo**: `SappyLogoShape` — 80×80, stroked in `textPrimary`, with `.trim()` draw-on
+3. **Title**: "sappy" — reveals left-to-right via mask scale synced to draw
+4. **Subtitle**: "No app asks you how you feel."
+5. **Spacer**
+6. **Auth section** (two steps):
 
-**Step 1 — Country Selection** (shown to first-time users):
+**Step 1 — Country Selection** (first-time users):
 - "Where are you joining from?" label
 - Country dropdown (Menu picker) with chevron
 - "Continue" button (disabled until country selected)
 
-**Step 2 — Sign In Options** (shown after country or for returning users):
-- "Sign In to Sappy" / "Continue with Sappy" button (dark, with small logo)
-- "Sign in with Apple" native button (white outline style)
+**Step 2 — Sign-In Options** (after country or returning users):
+- "Continue with Sappy" / "Sign In to Sappy" button (dark, with inline logo)
+- "Sign in with Apple" native button (white outline)
 
-6. **Disclaimer text** at bottom
+7. **Disclaimer text**: links to legal sheet
 
+#### Sheets
+- `SappyAuthView` — email/password auth (sign-up + sign-in toggle)
+- `SappyLegalView` — Terms of Service + Privacy Policy
 
+### 5.2 Sappy Auth Sheet (`SappyAuthView.swift`)
 
-#### Logo Draw-On Animation
+Modal email/password form with:
+- Header text (dynamic: "Create Account" / "Welcome Back")
+- `SappyTextField` inputs: Name (sign-up only), Email, Password
+- Submit button (disabled until form valid: non-empty fields + password ≥ 6)
+- Toggle link: "Already have an account?" / "Don't have an account?"
+- Dismiss button (X circle, top-left)
+
+### 5.3 Legal Sheet (`SappyLegalView.swift`)
+
+Scrollable document with:
+- Terms of Service (4 sections)
+- Privacy Policy (4 sections)
+- `LegalSection` and `LegalParagraph` helper components
+
+### 5.4 Tracking Screen (`TrackingView.swift`)
+
+#### Cinematic Entrance (4 phases)
+
 ```
-- strokeEnd: 0.0 → 1.0
-- Duration: 1.5s, easeOut
-- After 1.2s delay: title + auth elements fade in (1.0s, easeOut)
-```
-
-#### Auth Step Transition
-```
-countrySelection → signinOptions
-- Animation: spring(response: 0.5, dampingFraction: 0.7)
-```
-
----
-
-### 5.2 Tracking Screen (`TrackingView.swift`)
-
-#### Layout
-Full-screen split into two tap zones separated by a center label:
-
-```
-┌─────────────────────────┐
-│                         │
-│       happy.            │  ← Top half (tap zone)
-│                         │
-│                         │
-│   How are you feeling?  │  ← Center label
-│                         │
-│                         │
-│        sad.             │  ← Bottom half (tap zone)
-│                         │
-└─────────────────────────┘
+Phase 1 (0s):      Draw merged ):) logo via .trim() — 1.5s easeOut
+Phase 2 (1.2s):    Spring-split into :) top / :( bottom — spring(0.8, 0.65) + soft haptic
+Phase 3 (1.8s):    Fade in "happy.", "sad.", center label — 1.0s easeOut
+Phase 4 (2.4s):    Start breathing animation — 3.5s easeInOut, repeating forever
 ```
 
-#### Behavior
-- Text fades in over 1.5s on appear
-- Both mood words have a "breathing" scale animation: alternating between 0.98 and 1.02 scale, 4s cycle, forever
-- "happy." breathes UP when "sad." breathes DOWN (opposite phase)
-- Tapping either word triggers `.rigid` haptic and transitions to `FeedbackView`
-- Transition: 0.8s easeIn opacity
+#### Idle State
+```
+┌─────────────────────────────┐
+│                             │
+│         :)                  │  ← Happy face (colon + right arc)
+│       happy.                │
+│                             │
+│  No app asks you how        │  ← Center label
+│  you feel.                  │
+│                             │
+│       sad.                  │
+│         :(                  │  ← Sad face (left arc + colon)
+│                             │
+└─────────────────────────────┘
+```
 
+Both faces breathe with opposite-phase scale (1.00 ↔ 1.02) and vertical oscillation (±8px).
 
+#### Mood Selection
+- Tap top half → select happy, tap bottom half → select sad
+- Selected face: scales to 1.5×, moves to y: -180, applies `brandGradient` stroke
+- Dismissed face: fades out, slides off-screen (±500px)
+- Rigid haptic on selection
+- Feedback content fades in with staggered delays (0.1s, 0.3s, 0.5s)
 
----
+#### Feedback Content
+| Mood | Headline | Body |
+|---|---|---|
+| Happy | "That's wonderful." | "Keep riding the wave.\nThe world is yours today." |
+| Sad | "Take a deep breath." | "It is completely okay to feel this way.\nTomorrow is a new start." |
 
-### 5.3 Feedback View (`FeedbackView` inside `TrackingView.swift`)
+Plus: mocked global counter ("{count} people feel {mood} right now") and "Change my answer" reset button.
 
-#### Happy Response
-- Headline: "That's wonderful."
-- Body: "Keep riding the wave.\nThe world is yours today."
-
-#### Sad Response
-- Headline: "Take a deep breath."
-- Body: "It is completely okay to feel this way.\nTomorrow is a new start."
-
-#### Animations
-- Headline: fade in + offset(y: 10→0), 1.0s easeOut, 0.2s delay
-- Body: fade in + offset(y: 10→0), 1.0s easeOut, 1.2s delay
-- Entry transition into FeedbackView: 1.5s easeIn opacity with 0.5s delay
-- Exit of mood selection: opacity + scale(1.1) combined
+#### Reset Flow
+- "Change my answer" → medium haptic
+- Feedback fades out (0.4s)
+- After 0.3s delay: spring reset to split idle state
 
 ---
 
@@ -243,67 +264,36 @@ Full-screen split into two tap zones separated by a center label:
 The logo represents `):)` — reading left to right it's a sad face `):(`, but also a happy face `(:)`. The colon `:` serves as shared eyes.
 
 ### SVG Structure (3 parts)
-The logo is composed of three independently drawable sub-paths:
+| Part | Flag | Visual |
+|---|---|---|
+| Right Arc | `drawRight` | `)` — happy mouth |
+| Colon | `drawColon` | `:` — shared eyes |
+| Left Arc | `drawLeft` | `(` — sad mouth |
 
-1. **Left Arc** `)` — the concave left parenthesis
-2. **Colon** `:` — two dots (eyes)
-3. **Right Arc** `(` — the convex right parenthesis (mirrored)
-
-### Raw SVG (80×80 viewBox, black stroke)
-Use `SappyLogo.svg` in project root. This is the canonical export matching the LoginView's 80×80 rendering.
-
-### React SVG Component
-```jsx
-// Import the SVG file directly or use inline SVG
-import { ReactComponent as SappyLogo } from '../assets/sappy-logo.svg';
-
-// Or render inline with the path data from SappyLogo.svg
-<svg width="80" height="80" viewBox="0 0 80 80" fill="none">
-  <path d="[path data from SappyLogo.svg]"
-        stroke="#191919" strokeWidth="6"
-        strokeLinecap="round" strokeLinejoin="round"/>
-</svg>
-```
-
-### For React Native (react-native-svg)
-```jsx
-import Svg, { Path } from 'react-native-svg';
-
-const SappyLogo = ({ size = 80, color = '#191919' }) => (
-  <Svg width={size} height={size} viewBox="0 0 80 80" fill="none">
-    <Path d="[path data from SappyLogo.svg]"
-          stroke={color} strokeWidth={6}
-          strokeLinecap="round" strokeLinejoin="round"/>
-  </Svg>
-);
-```
+### Coordinate System
+Raw path data spans a `104×134` unit region originating at `(202.6, 198.5)`. The `path(in:)` method normalizes coordinates into the target rect with uniform scaling and centering. The static `fullBounds` ensures partial compositions (e.g., colon-only) align spatially with the full logo.
 
 ---
 
 ## 7. Animation Specifications
 
-### Summary Table
-
 | Animation | Duration | Easing | Delay | Notes |
 |---|---|---|---|---|
-
-| Logo stroke draw-on | 1.5s | easeOut | 0 | strokeEnd: 0→1 |
-| Title/auth fade in | 1.0s | easeOut | 1.2s | opacity + offset(y: 20→0) |
+| Logo stroke draw-on | 1.5s | easeOut | 0 | `.trim()`: 0 → 1 |
+| Title/auth reveal | 1.0s | easeOut | 1.2s | opacity + offset(y: 20→0) |
 | Auth step transition | spring | response: 0.5, damping: 0.7 | 0 | — |
 | App state transition | 0.8s | easeInOut | 0 | opacity crossfade |
-| Mood text fade in | 1.5s | easeIn | 0 | — |
-| Mood text breathing | 4.0s | easeInOut | 0 | scale 0.98↔1.02, forever |
-| Mood selection | 0.8s | easeIn | 0 | opacity transition |
-
-| Feedback headline | 1.0s | easeOut | 0.2s | opacity + y offset |
-| Feedback body | 1.0s | easeOut | 1.2s | opacity + y offset |
-| Feedback view entry | 1.5s | easeIn | 0.5s | opacity |
-| Button press scale | 0.2s | easeOut | 0 | scale: 1.0→0.96 |
-
-### React Animation Library Recommendations
-- **React Native**: `react-native-reanimated` for spring physics and gesture-driven animations
-- **React Web**: `framer-motion` for declarative animations matching SwiftUI behavior
-- **SVG draw-on**: Animate `strokeDashoffset` from path length to 0
+| Cinematic face split | spring | response: 0.8, damping: 0.65 | 1.2s | splitOffset: 0 → 180 |
+| Text fade-in | 1.0s | easeOut | 1.8s | textOpacity: 0 → 1 |
+| Breathing scale | 3.5s | easeInOut | 2.4s | 1.00 ↔ 1.02, forever |
+| Breathing offset | 3.5s | easeInOut | 2.4s | ±8px, forever |
+| Mood selection | spring | response: 0.6, damping: 0.7 | 0 | scale + gradient + offset |
+| Feedback headline | 0.8s | easeOut | 0.1s | opacity + offset(y: 20→0) |
+| Feedback counter | 0.8s | easeOut | 0.3s | opacity + offset(y: 20→0) |
+| Feedback reset btn | 0.8s | easeOut | 0.5s | opacity + offset(y: 20→0) |
+| Feedback fade-out | 0.4s | easeOut | 0 | on "Change my answer" |
+| Mood reset | spring | response: 0.6, damping: 0.7 | 0.3s | selectedMood → nil |
+| Button press scale | 0.2s | easeOut | 0 | scale: 1.0 → 0.96 |
 
 ---
 
@@ -311,22 +301,13 @@ const SappyLogo = ({ size = 80, color = '#191919' }) => (
 
 | Action | iOS API | Android Equivalent |
 |---|---|---|
-| Country selection | `UISelectionFeedbackGenerator.selectionChanged()` | `HapticFeedbackConstants.CLOCK_TICK` |
-| "Continue" press | `UIImpactFeedbackGenerator(.medium)` | `HapticFeedbackConstants.CONTEXT_CLICK` |
-| Auth success | `UINotificationFeedbackGenerator(.success)` | `HapticFeedbackConstants.CONFIRM` |
-| Auth failure | `UINotificationFeedbackGenerator(.error)` | `HapticFeedbackConstants.REJECT` |
-| Mood selection | `UIImpactFeedbackGenerator(.rigid)` | `HapticFeedbackConstants.KEYBOARD_TAP` |
-
-### React Native Implementation
-```jsx
-import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
-
-// On mood selection:
-ReactNativeHapticFeedback.trigger('impactHeavy');
-
-// On auth success:
-ReactNativeHapticFeedback.trigger('notificationSuccess');
-```
+| Country selection | `UISelectionFeedbackGenerator.selectionChanged()` | `CLOCK_TICK` |
+| "Continue" press | `UIImpactFeedbackGenerator(.medium)` | `CONTEXT_CLICK` |
+| Auth success | `UINotificationFeedbackGenerator(.success)` | `CONFIRM` |
+| Auth failure | `UINotificationFeedbackGenerator(.error)` | `REJECT` |
+| Cinematic split | `UIImpactFeedbackGenerator(.soft)` | `CLOCK_TICK` |
+| Mood selection | `UIImpactFeedbackGenerator(.rigid)` | `KEYBOARD_TAP` |
+| Mood reset | `UIImpactFeedbackGenerator(.medium)` | `CONTEXT_CLICK` |
 
 ---
 
@@ -337,10 +318,10 @@ ReactNativeHapticFeedback.trigger('notificationSuccess');
 - `@AppStorage("hasCompletedFirstSignUp")` stores a boolean in `UserDefaults`.
 - If `true` on launch → skip country picker, go straight to sign-in options.
 - Selecting any auth method sets this to `true` and transitions to tracking.
+- Global mood counts are mocked (`happyCount: 12847`, `sadCount: 4392`).
 
 ### React Equivalent
 ```jsx
-// AsyncStorage (React Native) or localStorage (React Web)
 const hasCompletedFirstSignUp = await AsyncStorage.getItem('hasCompletedFirstSignUp');
 
 if (hasCompletedFirstSignUp === 'true') {
@@ -365,32 +346,20 @@ const countries = [
 
 ## 10. React Implementation Notes
 
-### Key Behavioral Differences to Account For
+### Key Mappings
 
-1. **SwiftUI `ZStack` → React `position: absolute`**
-   - SwiftUI layers views in a ZStack. In React, use absolute positioning or `z-index` layering.
-
-2. **SwiftUI transitions → Framer Motion `AnimatePresence`**
-   - SwiftUI's `.transition(.opacity)` maps to `<AnimatePresence>` with `initial/animate/exit` props.
-
-3. **Spring physics**
-   - SwiftUI `spring(response: X, dampingFraction: Y)` → Framer Motion `transition={{ type: "spring", duration: X, bounce: 1-Y }}`
-
-4. **`@State` → `useState`**
-   - Direct 1:1 mapping. SwiftUI's `@State` is React's `useState`.
-
-5. **`@Binding` → props + callbacks**
-   - SwiftUI's `@Binding var appState` is a React prop + setter: `onAuth={() => setAppState('tracking')}`
-
-6. **`.onAppear` → `useEffect`**
-   - SwiftUI's `.onAppear { }` maps to `useEffect(() => { }, [])`.
-
-7. **Menu picker → React Native `Picker` or custom dropdown**
-   - No direct equivalent. Use `@react-native-picker/picker` or a custom modal.
-
-8. **Sign In with Apple → `@invertase/react-native-apple-authentication`**
-
-9. **Blur effects → `@react-native-community/blur` or CSS `backdrop-filter`**
+| SwiftUI | React |
+|---|---|
+| `ZStack` | `position: absolute` / `z-index` |
+| `.transition(.opacity)` | `<AnimatePresence>` with `initial/animate/exit` |
+| `spring(response: X, dampingFraction: Y)` | `transition={{ type: "spring", duration: X, bounce: 1-Y }}` |
+| `@State` | `useState` |
+| `@Binding var` | prop + setter callback |
+| `.onAppear` | `useEffect(() => {}, [])` |
+| `@AppStorage` | `AsyncStorage` (RN) / `localStorage` (web) |
+| `NavigationStack` + `.sheet` | React Navigation modal / dialog |
+| `Menu` picker | `@react-native-picker/picker` or custom dropdown |
+| `SignInWithAppleButton` | `@invertase/react-native-apple-authentication` |
 
 ### Minimum Dependencies (React Native)
 ```json
@@ -400,7 +369,6 @@ const countries = [
   "react-native-haptic-feedback": "^2.x",
   "@react-native-async-storage/async-storage": "^1.x",
   "@invertase/react-native-apple-authentication": "^2.x",
-  "@react-native-picker/picker": "^2.x",
-  "@react-native-community/blur": "^4.x"
+  "@react-native-picker/picker": "^2.x"
 }
 ```

@@ -21,7 +21,6 @@ struct LoginView: View {
     @State private var selectedCountry: String = "Select Country"
     @State private var strokeEnd: CGFloat = 0.0
     @State private var showElements = false
-    @State private var isAnimating = false
     
     let countries = [
         "United States", "United Kingdom", "Canada", "Australia",
@@ -33,25 +32,7 @@ struct LoginView: View {
             // Pure White background
             Color.white.ignoresSafeArea()
             
-            // Minimalistic elegant red background light play
-            ZStack {
-                Circle()
-                    .fill(Color(red: 1.0, green: 0.2, blue: 0.2).opacity(0.08))
-                    .frame(width: 400, height: 400)
-                    .blur(radius: 80)
-                    .offset(x: isAnimating ? -60 : 60, y: isAnimating ? -80 : 80)
-                
-                Circle()
-                    .fill(Color(red: 0.5, green: 0.0, blue: 0.0).opacity(0.06))
-                    .frame(width: 300, height: 300)
-                    .blur(radius: 80)
-                    .offset(x: isAnimating ? 40 : -40, y: isAnimating ? 80 : -80)
-            }
-            .onAppear {
-                withAnimation(.easeInOut(duration: 10).repeatForever(autoreverses: true)) {
-                    isAnimating.toggle()
-                }
-            }
+
             
             VStack {
                 Spacer()

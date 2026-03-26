@@ -7,6 +7,8 @@
 
 import SwiftUI
 import AuthenticationServices
+import FirebaseAuth
+import CryptoKit
 
 // MARK: - Auth Step
 
@@ -26,8 +28,8 @@ enum AuthStep {
 /// choose between native Sappy email/password auth or Sign In with Apple.
 /// Returning users (detected via `@AppStorage`) skip the country step.
 ///
-/// The logo draws on with a `.trim()` animation, followed by the "sappy" text
-/// revealing left-to-right via a mask scale.
+/// **Sign In with Apple** is wired directly to Firebase Auth via
+/// `OAuthProvider.appleCredential`, ensuring a real Firebase user identity.
 struct LoginView: View {
     @Binding var appState: AppState
 
@@ -38,18 +40,31 @@ struct LoginView: View {
     // MARK: - State
 
     @State private var authStep: AuthStep = .countrySelection
-    @State private var selectedCountry: String = "Select Country"
+    @State private var selectedCountryName: String = "Select Country"
+    @State private var selectedCountryCode: String = ""
+    @AppStorage("userCountry") private var persistedCountry: String = ""
     @State private var drawProgress: CGFloat = 0.0
     @State private var showElements = false
     @State private var showSappyAuth = false
     @State private var showLegal = false
+    @State private var authError: String?
 
-    /// Available countries for the country picker.
-    /// Will be expanded or sourced from a backend during Firebase integration.
-    let countries = [
-        "United States", "United Kingdom", "Canada", "Australia",
-        "Germany", "France", "Japan", "South Korea", "Brazil", "India"
-    ]
+    /// Nonce used for Sign In with Apple → Firebase credential exchange.
+    @State private var currentNonce: String?
+
+    /// All countries from ISO 3166-1 alpha-2, sorted by display name.
+    /// The code is stored in `@AppStorage` and used as the Firestore key.
+    static let countries: [(name: String, code: String)] = {
+        let locale = Locale.current
+        return Locale.Region.isoRegions
+            .map { region in
+                let code = region.identifier
+                let name = locale.localizedString(forRegionCode: code) ?? code
+                return (name: name, code: code)
+            }
+            .filter { !$0.name.isEmpty && $0.code.count == 2 }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }()
 
     // MARK: - Body
 
@@ -102,6 +117,15 @@ struct LoginView: View {
                             countrySelectionStep
                         } else {
                             signinOptionsStep
+                        }
+
+                        // Auth error message
+                        if let authError = authError {
+                            Text(authError)
+                                .font(.custom(SappyDesign.fontFamily, size: 13))
+                                .foregroundColor(.red.opacity(0.8))
+                                .multilineTextAlignment(.center)
+                                .transition(.opacity)
                         }
 
                         // Legal disclaimer
@@ -159,16 +183,17 @@ struct LoginView: View {
                 .padding(.bottom, 8)
 
             Menu {
-                ForEach(countries, id: \.self) { country in
-                    Button(country) {
+                ForEach(Self.countries, id: \.code) { country in
+                    Button(country.name) {
                         UISelectionFeedbackGenerator().selectionChanged()
-                        selectedCountry = country
+                        selectedCountryName = country.name
+                        selectedCountryCode = country.code
                     }
                 }
             } label: {
                 HStack {
-                    Text(selectedCountry)
-                        .foregroundColor(selectedCountry == "Select Country" ? .black.opacity(SappyDesign.textTertiaryOpacity) : .black)
+                    Text(selectedCountryName)
+                        .foregroundColor(selectedCountryCode.isEmpty ? .black.opacity(SappyDesign.textTertiaryOpacity) : .black)
                         .font(.custom(SappyDesign.fontFamily, size: 16))
                         .fontWeight(.semibold)
                     Spacer()
@@ -192,6 +217,7 @@ struct LoginView: View {
 
             Button(action: {
                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                persistedCountry = selectedCountryCode
                 withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
                     authStep = .signinOptions
                 }
@@ -202,11 +228,12 @@ struct LoginView: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .frame(height: SappyDesign.buttonHeight)
-                    .background(selectedCountry == "Select Country" ? Color.black.opacity(SappyDesign.disabledOpacity) : Color.black)
-                    .cornerRadius(SappyDesign.cornerRadius)
+                    .background(selectedCountryCode.isEmpty ? Color.black.opacity(SappyDesign.disabledOpacity) : Color.black)
+                    .clipShape(RoundedRectangle(cornerRadius: SappyDesign.cornerRadius, style: .continuous))
             }
             .buttonStyle(SquishableButtonStyle())
-            .disabled(selectedCountry == "Select Country")
+            .disabled(selectedCountryCode.isEmpty)
+            .accessibilityLabel("Continue to sign in")
             .padding(.top, 8)
         }
     }
@@ -240,41 +267,91 @@ struct LoginView: View {
             }
             .buttonStyle(SquishableButtonStyle())
 
-            // Native Apple Sign In
+            // Native Apple Sign In — wired to Firebase via OAuthProvider credential
             SignInWithAppleButton(
                 onRequest: { request in
+                    let nonce = Self.randomNonceString()
+                    currentNonce = nonce
                     request.requestedScopes = [.fullName, .email]
+                    request.nonce = Self.sha256(nonce)
                 },
                 onCompletion: { result in
-                    switch result {
-                    case .success:
-                        handleAuthentication()
-                    case .failure(let error):
-                        UINotificationFeedbackGenerator().notificationOccurred(.error)
-                        print("[Sappy] Auth failed: \(error.localizedDescription)")
-                    }
+                    handleAppleSignIn(result: result)
                 }
             )
             .signInWithAppleButtonStyle(.whiteOutline)
             .frame(height: SappyDesign.buttonHeight)
-            .cornerRadius(SappyDesign.cornerRadius)
+            .clipShape(RoundedRectangle(cornerRadius: SappyDesign.cornerRadius, style: .continuous))
         }
     }
 
-    // MARK: - Auth Handler
+    // MARK: - Sign In with Apple → Firebase
 
-    /// Handles a successful authentication from Sign In with Apple.
-    ///
-    /// Fires a success haptic, persists the first-sign-up flag, and
-    /// transitions to the tracking view with a spring animation.
-    private func handleAuthentication() {
+    /// Extracts the Apple credential and exchanges it for a Firebase user identity.
+    private func handleAppleSignIn(result: Result<ASAuthorization, Error>) {
+        switch result {
+        case .success(let authResults):
+            guard let appleIDCredential = authResults.credential as? ASAuthorizationAppleIDCredential,
+                  let appleIDToken = appleIDCredential.identityToken,
+                  let idTokenString = String(data: appleIDToken, encoding: .utf8),
+                  let nonce = currentNonce else {
+                authError = "Failed to retrieve Apple credential."
+                return
+            }
+
+            let credential = OAuthProvider.appleCredential(
+                withIDToken: idTokenString,
+                rawNonce: nonce,
+                fullName: appleIDCredential.fullName
+            )
+
+            Auth.auth().signIn(with: credential) { authResult, error in
+                DispatchQueue.main.async {
+                    if let error = error {
+                        UINotificationFeedbackGenerator().notificationOccurred(.error)
+                        authError = error.localizedDescription
+                        return
+                    }
+                    completeAuthentication()
+                }
+            }
+
+        case .failure(let error):
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
+            authError = error.localizedDescription
+        }
+    }
+
+    /// Shared success path for all auth methods.
+    private func completeAuthentication() {
         UINotificationFeedbackGenerator().notificationOccurred(.success)
-
         hasCompletedFirstSignUp = true
+        authError = nil
 
         withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
             appState = .tracking
         }
+    }
+
+    // MARK: - Crypto Helpers (SIWA Nonce)
+
+    /// Generates a cryptographically secure random nonce string.
+    private static func randomNonceString(length: Int = 32) -> String {
+        precondition(length > 0)
+        var randomBytes = [UInt8](repeating: 0, count: length)
+        let errorCode = SecRandomCopyBytes(kSecRandomDefault, randomBytes.count, &randomBytes)
+        if errorCode != errSecSuccess {
+            fatalError("[Sappy] SecRandomCopyBytes failed with OSStatus \(errorCode)")
+        }
+        let charset: [Character] = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
+        return String(randomBytes.map { charset[Int($0) % charset.count] })
+    }
+
+    /// Returns the SHA256 hash of the input string, hex-encoded.
+    private static func sha256(_ input: String) -> String {
+        let inputData = Data(input.utf8)
+        let hashedData = SHA256.hash(data: inputData)
+        return hashedData.compactMap { String(format: "%02x", $0) }.joined()
     }
 }
 

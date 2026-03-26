@@ -25,17 +25,25 @@ import SwiftUI
 /// keeps the idle state alive.
 ///
 /// ## Data
-/// `happyCount` and `sadCount` are currently mocked. They will be replaced
-/// with Firestore snapshot listeners during backend integration.
+/// Global mood counts and per-country breakdowns are synced in real-time
+/// via `TrackingViewModel`, which holds a Firestore snapshot listener.
+///
+/// ## Vote Persistence
+/// The user's vote is persisted across sessions. "Change my answer" returns
+/// to the selection UI but keeps the active vote in Firestore until a new
+/// mood is chosen.
 struct TrackingView: View {
 
     // MARK: - State & Data
 
+    @Binding var appState: AppState
     @State private var selectedMood: Mood? = nil
 
-    /// Mocked real-time global counts. Will be replaced with Firestore listeners.
-    @State private var happyCount: Int = 12847
-    @State private var sadCount: Int = 4392
+    /// Live real-time global counts and logic synced via Firestore.
+    @StateObject private var viewModel = TrackingViewModel()
+
+    /// Controls the settings sheet presentation.
+    @State private var showSettings = false
 
     // MARK: - Animation Properties
 
@@ -61,7 +69,16 @@ struct TrackingView: View {
 
     var body: some View {
         ZStack {
-            Color.white.ignoresSafeArea()
+            GeometryReader { geo in
+                let totalHeight = geo.size.height + geo.safeAreaInsets.top + geo.safeAreaInsets.bottom
+                ZStack {
+                    Color.white
+                    Color.black
+                        .offset(y: selectedMood == .happy ? 0 : (selectedMood == .sad ? -totalHeight : -totalHeight / 2))
+                }
+            }
+            .ignoresSafeArea()
+            .animation(.easeInOut(duration: 0.6), value: selectedMood)
 
             // MARK: Invisible Touch Targets
 
@@ -70,10 +87,12 @@ struct TrackingView: View {
                     Color.white.opacity(0.001)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .onTapGesture { selectMood(.happy) }
+                        .accessibilityLabel("I feel happy")
 
                     Color.white.opacity(0.001)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .onTapGesture { selectMood(.sad) }
+                        .accessibilityLabel("I feel sad")
                 }
             }
 
@@ -83,9 +102,7 @@ struct TrackingView: View {
                 SappyLogoShape(drawLeft: false, drawColon: true, drawRight: true)
                     .trim(from: 0, to: entryTrim)
                     .stroke(
-                        selectedMood == .happy
-                            ? AnyShapeStyle(SappyDesign.brandGradient)
-                            : AnyShapeStyle(Color.black.opacity(0.85)),
+                        Color.white,
                         style: StrokeStyle(lineWidth: SappyDesign.trackingStrokeWidth, lineCap: .round, lineJoin: .round)
                     )
                     .frame(width: SappyDesign.trackingFaceSize, height: SappyDesign.trackingFaceSize)
@@ -96,7 +113,7 @@ struct TrackingView: View {
                     .fontWeight(.light)
                     .italic()
                     .kerning(1.5)
-                    .foregroundColor(Color.black.opacity(0.85))
+                    .foregroundColor(.white)
                     .opacity(selectedMood == nil ? textOpacity : 0)
             }
             .scaleEffect(selectedMood == nil ? breathingScale : 1.0)
@@ -112,9 +129,7 @@ struct TrackingView: View {
                 SappyLogoShape(drawLeft: true, drawColon: true, drawRight: false)
                     .trim(from: 0, to: entryTrim)
                     .stroke(
-                        selectedMood == .sad
-                            ? AnyShapeStyle(SappyDesign.brandGradient)
-                            : AnyShapeStyle(Color.black.opacity(0.85)),
+                        Color.black,
                         style: StrokeStyle(lineWidth: SappyDesign.trackingStrokeWidth, lineCap: .round, lineJoin: .round)
                     )
                     .frame(width: SappyDesign.trackingFaceSize, height: SappyDesign.trackingFaceSize)
@@ -125,7 +140,7 @@ struct TrackingView: View {
                     .fontWeight(.light)
                     .italic()
                     .kerning(1.5)
-                    .foregroundColor(Color.black.opacity(0.85))
+                    .foregroundColor(.black)
                     .opacity(selectedMood == nil ? textOpacity : 0)
             }
             .scaleEffect(selectedMood == nil ? (2.0 - breathingScale) : 1.0)
@@ -135,13 +150,6 @@ struct TrackingView: View {
             .opacity(selectedMood == .happy ? 0 : 1)
             .zIndex(selectedMood == .sad ? 10 : 1)
 
-            // MARK: Center Label
-
-            Text("No app asks you how you feel.")
-                .font(.custom(SappyDesign.fontFamily, size: 16))
-                .foregroundColor(Color.black.opacity(SappyDesign.textQuaternaryOpacity))
-                .kerning(1.2)
-                .opacity(selectedMood == nil ? textOpacity : 0)
 
             // MARK: Feedback Content
 
@@ -151,8 +159,35 @@ struct TrackingView: View {
                     .opacity(showFeedbackText ? 1 : 0)
             }
         }
+        // MARK: Settings Gear Overlay
+        .overlay(alignment: .topTrailing) {
+            Button(action: { showSettings = true }) {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundColor(selectedMood == .sad ? .black.opacity(0.35) : .white.opacity(0.35))
+                    .padding(20)
+            }
+            .accessibilityLabel("Settings")
+            .opacity(splitOffset > 100 ? 1 : 0)
+            .animation(.easeOut(duration: 0.5), value: splitOffset > 100)
+        }
+        .sheet(isPresented: $showSettings) {
+            SappySettingsView(appState: $appState, viewModel: viewModel)
+        }
+        .preferredColorScheme(selectedMood == .sad ? .light : .dark)
         .onAppear {
-            launchCinematicEntrance()
+            viewModel.startSync()
+            // Restore persisted mood state from previous session
+            if let persisted = viewModel.currentMood {
+                selectedMood = persisted
+                showFeedbackText = true
+                // Skip entrance animation — go directly to feedback state
+                entryTrim = 1.0
+                splitOffset = SappyDesign.splitDistance
+                textOpacity = 1.0
+            } else {
+                launchCinematicEntrance()
+            }
         }
     }
 
@@ -201,6 +236,10 @@ struct TrackingView: View {
     /// and begins the staggered feedback fade-in.
     private func selectMood(_ mood: Mood) {
         UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+        
+        // ViewModel handles atomic swap: if same mood → no-op,
+        // if different mood → batch decrement old + increment new.
+        viewModel.vote(mood: mood)
 
         withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
             selectedMood = mood
@@ -213,9 +252,12 @@ struct TrackingView: View {
         }
     }
 
-    /// Resets the mood selection, animating back to the split idle state.
+    /// Returns to the selection UI but **keeps the existing vote** active
+    /// in Firestore. The vote is only changed when the user picks a new mood.
     private func resetMood() {
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        
+        // Do NOT subtract vote — it remains active until a new mood is selected.
 
         withAnimation(.easeOut(duration: 0.4)) {
             showFeedbackText = false
@@ -233,59 +275,69 @@ struct TrackingView: View {
     /// Builds the post-selection feedback view with staggered animations.
     @ViewBuilder
     private func feedbackContent(for mode: Mood) -> some View {
-        VStack(spacing: 32) {
+        VStack(spacing: 40) {
 
-            // Empathetic headline + body
-            VStack(spacing: 24) {
-                Text(mode == .happy ? "That's wonderful." : "Take a deep breath.")
-                    .font(.custom(SappyDesign.fontFamily, size: 34))
-                    .fontWeight(.light)
-                    .kerning(1.2)
-                    .foregroundColor(.black.opacity(0.9))
+            // Real-time counter (live) - guaranteed to be at least 1 since they just voted
+            let count = max(1, mode == .happy ? viewModel.globalHappyCount : viewModel.globalSadCount)
 
-                Text(mode == .happy
-                     ? "Keep riding the wave.\nThe world is yours today."
-                     : "It is completely okay to feel this way.\nTomorrow is a new start.")
-                    .font(.custom(SappyDesign.fontFamily, size: 18))
-                    .foregroundColor(.black.opacity(SappyDesign.textSecondaryOpacity))
-                    .kerning(0.8)
-                    .multilineTextAlignment(.center)
-                    .lineSpacing(6)
-                    .padding(.horizontal, 40)
+            VStack(spacing: 8) {
+                Text("\(count.formatted()) \(count == 1 ? "person" : "people")")
+                    .font(.custom(SappyDesign.fontFamily, size: 24))
+                    .foregroundColor(mode == .happy ? .white : .black.opacity(0.85))
+
+                Text("\(count == 1 ? "feels" : "feel") \(mode.rawValue) right now")
+                    .font(.custom(SappyDesign.fontFamily, size: 16))
+                    .foregroundColor(mode == .happy ? .white.opacity(0.7) : .black.opacity(SappyDesign.textTertiaryOpacity))
             }
             .offset(y: showFeedbackText ? 0 : 20)
             .animation(.easeOut(duration: 0.8).delay(0.1), value: showFeedbackText)
 
-            Spacer().frame(height: 10)
+            // Country Breakdown Tracker
+            let countryStats: [(String, Int)] = mode == .happy
+                ? viewModel.happyCountryStats
+                : viewModel.sadCountryStats
 
-            // Real-time counter (mocked)
-            let count = mode == .happy ? happyCount : sadCount
-
-            VStack(spacing: 8) {
-                Text("\(count.formatted()) people")
-                    .font(.custom(SappyDesign.fontFamily, size: 24))
-                    .foregroundColor(.black.opacity(0.85))
-
-                Text("feel \(mode.rawValue) right now")
-                    .font(.custom(SappyDesign.fontFamily, size: 16))
-                    .foregroundColor(.black.opacity(SappyDesign.textTertiaryOpacity))
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 20) {
+                    Spacer().frame(width: 8)
+                    ForEach(0..<countryStats.count, id: \.self) { i in
+                        let code = countryStats[i].0
+                        let count = countryStats[i].1
+                        HStack(spacing: 6) {
+                            Text(code.uppercased())
+                                .font(.custom(SappyDesign.fontFamily, size: 11))
+                                .fontWeight(.semibold)
+                                .kerning(1.0)
+                                .foregroundColor(mode == .happy ? .white : .black.opacity(0.7))
+                            Text("\(count)")
+                                .font(.custom(SappyDesign.fontFamily, size: 11))
+                                .foregroundColor(mode == .happy ? .white.opacity(0.5) : .black.opacity(0.4))
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(
+                            Capsule()
+                                .fill(mode == .happy ? Color.white.opacity(0.1) : Color.black.opacity(0.06))
+                        )
+                    }
+                    Spacer().frame(width: 8)
+                }
             }
+            .frame(height: 40)
             .offset(y: showFeedbackText ? 0 : 20)
-            .animation(.easeOut(duration: 0.8).delay(0.3), value: showFeedbackText)
-
-            Spacer().frame(height: 10)
+            .animation(.easeOut(duration: 0.8).delay(0.2), value: showFeedbackText)
 
             // Change answer button
             Button(action: resetMood) {
                 Text("Change my answer")
                     .font(.custom(SappyDesign.fontFamily, size: 14))
                     .kerning(1.0)
-                    .foregroundColor(.black.opacity(SappyDesign.textTertiaryOpacity))
+                    .foregroundColor(mode == .happy ? .white.opacity(0.7) : .black.opacity(SappyDesign.textTertiaryOpacity))
                     .underline()
                     .padding()
             }
             .offset(y: showFeedbackText ? 0 : 20)
-            .animation(.easeOut(duration: 0.8).delay(0.5), value: showFeedbackText)
+            .animation(.easeOut(duration: 0.8).delay(0.3), value: showFeedbackText)
         }
     }
 }

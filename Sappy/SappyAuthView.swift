@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import FirebaseAuth
 
 // MARK: - Sappy Email/Password Auth Sheet
 
@@ -13,11 +14,9 @@ import SwiftUI
 ///
 /// Supports both sign-up (with name field) and sign-in modes, toggled inline.
 /// Presented as a `.sheet` from `LoginView`. On success, dismisses itself
-/// and transitions the app to `.tracking` state after a brief delay.
+/// and transitions the app to `.tracking` state.
 ///
-/// **Backend**: Currently front-end only. `handleAuthSuccess()` sets
-/// `hasCompletedFirstSignUp` in `@AppStorage` and routes to the tracking view.
-/// Firebase Authentication integration is the planned next step.
+/// **Backend**: Connected to Firebase Email/Password Authentication.
 struct SappyAuthView: View {
     @Environment(\.dismiss) var dismiss
     @Binding var appState: AppState
@@ -29,6 +28,8 @@ struct SappyAuthView: View {
     @State private var name = ""
     @State private var email = ""
     @State private var password = ""
+    @State private var isLoading = false
+    @State private var errorMessage: String?
 
     // MARK: - Body
 
@@ -65,22 +66,40 @@ struct SappyAuthView: View {
                         SappyTextField(placeholder: "Password", text: $password, keyboardType: .default, textContentType: isSignUp ? .newPassword : .password, isSecure: true)
                     }
 
+                    // MARK: Error Message
+
+                    if let errorMessage = errorMessage {
+                        Text(errorMessage)
+                            .font(.custom(SappyDesign.fontFamily, size: 13))
+                            .foregroundColor(.red.opacity(0.8))
+                            .multilineTextAlignment(.center)
+                            .transition(.opacity.combined(with: .offset(y: -5)))
+                    }
+
                     // MARK: Submit Button
 
                     Button(action: {
-                        handleAuthSuccess()
+                        handleAuth()
                     }) {
-                        Text(isSignUp ? "Sign Up" : "Sign In")
-                            .font(.custom(SappyDesign.fontFamily, size: 16))
-                            .fontWeight(.bold)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: SappyDesign.buttonHeight)
-                            .background(isFormValid ? Color.black : Color.black.opacity(SappyDesign.disabledOpacity))
-                            .cornerRadius(SappyDesign.cornerRadius)
+                        ZStack {
+                            Text(isSignUp ? "Sign Up" : "Sign In")
+                                .font(.custom(SappyDesign.fontFamily, size: 16))
+                                .fontWeight(.bold)
+                                .foregroundColor(.white)
+                                .opacity(isLoading ? 0 : 1)
+
+                            if isLoading {
+                                ProgressView()
+                                    .tint(.white)
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: SappyDesign.buttonHeight)
+                        .background(isFormValid && !isLoading ? Color.black : Color.black.opacity(SappyDesign.disabledOpacity))
+                        .clipShape(RoundedRectangle(cornerRadius: SappyDesign.cornerRadius, style: .continuous))
                     }
                     .buttonStyle(SquishableButtonStyle())
-                    .disabled(!isFormValid)
+                    .disabled(!isFormValid || isLoading)
                     .padding(.top, 8)
 
                     // MARK: Toggle Sign In / Sign Up
@@ -88,6 +107,7 @@ struct SappyAuthView: View {
                     Button(action: {
                         withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                             isSignUp.toggle()
+                            errorMessage = nil
                         }
                     }) {
                         HStack(spacing: 4) {
@@ -138,24 +158,80 @@ struct SappyAuthView: View {
         }
     }
 
-    // MARK: - Auth Handler
+    // MARK: - Firebase Auth Handler
 
-    /// Finalizes the authentication attempt.
-    ///
-    /// Currently a front-end stub: fires a success haptic, persists the
-    /// sign-up flag, dismisses the sheet, and routes to `.tracking`.
-    /// Will be replaced with Firebase Auth calls during backend integration.
-    private func handleAuthSuccess() {
+    /// Routes to the correct Firebase auth method (sign-up or sign-in).
+    private func handleAuth() {
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        errorMessage = nil
+        isLoading = true
+
+        if isSignUp {
+            Auth.auth().createUser(withEmail: email.trimmingCharacters(in: .whitespaces), password: password) { authResult, error in
+                DispatchQueue.main.async {
+                    isLoading = false
+                    if let error = error {
+                        UINotificationFeedbackGenerator().notificationOccurred(.error)
+                        errorMessage = Self.friendlyError(error)
+                        return
+                    }
+                    
+                    // Update display name if provided
+                    if !name.trimmingCharacters(in: .whitespaces).isEmpty {
+                        let changeRequest = authResult?.user.createProfileChangeRequest()
+                        changeRequest?.displayName = name.trimmingCharacters(in: .whitespaces)
+                        changeRequest?.commitChanges(completion: nil)
+                    }
+                    
+                    completeAuthentication()
+                }
+            }
+        } else {
+            Auth.auth().signIn(withEmail: email.trimmingCharacters(in: .whitespaces), password: password) { _, error in
+                DispatchQueue.main.async {
+                    isLoading = false
+                    if let error = error {
+                        UINotificationFeedbackGenerator().notificationOccurred(.error)
+                        errorMessage = Self.friendlyError(error)
+                        return
+                    }
+                    completeAuthentication()
+                }
+            }
+        }
+    }
+
+    /// Shared success path for both sign-up and sign-in.
+    private func completeAuthentication() {
         UINotificationFeedbackGenerator().notificationOccurred(.success)
-
         hasCompletedFirstSignUp = true
         dismiss()
 
-        // Brief delay allows the sheet dismiss animation to complete
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
                 appState = .tracking
             }
+        }
+    }
+
+    /// Maps Firebase error codes to user-friendly messages.
+    private static func friendlyError(_ error: Error) -> String {
+        let code = (error as NSError).code
+        switch code {
+        case AuthErrorCode.emailAlreadyInUse.rawValue:
+            return "This email is already registered. Try signing in."
+        case AuthErrorCode.invalidEmail.rawValue:
+            return "Please enter a valid email address."
+        case AuthErrorCode.weakPassword.rawValue:
+            return "Password must be at least 6 characters."
+        case AuthErrorCode.wrongPassword.rawValue, AuthErrorCode.invalidCredential.rawValue:
+            return "Incorrect email or password."
+        case AuthErrorCode.userNotFound.rawValue:
+            return "No account found. Try signing up."
+        case AuthErrorCode.networkError.rawValue:
+            return "Network error. Check your connection."
+        default:
+            return error.localizedDescription
         }
     }
 }
@@ -163,9 +239,6 @@ struct SappyAuthView: View {
 // MARK: - Sappy Text Field
 
 /// A branded text/secure field matching Sappy's input design language.
-///
-/// Renders with a light fill background, subtle border, and the brand typeface.
-/// Supports both plain `TextField` and `SecureField` via the `isSecure` flag.
 struct SappyTextField: View {
     var placeholder: String
     @Binding var text: String

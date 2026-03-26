@@ -41,6 +41,7 @@ Sappy/
 ├── SappyAuthView.swift       # Email/password auth sheet (sign-up + sign-in)
 ├── SappyLegalView.swift      # Terms of Service & Privacy Policy sheet
 ├── TrackingView.swift        # Cinematic mood selection → feedback response
+├── SappySettingsView.swift   # Account management: sign-out + account deletion
 ├── SappyLogoShape.swift      # SwiftUI Shape — SVG path data for ):) logo
 ├── SplashView.swift          # ARCHIVED — face-merge splash animation (bypassed)
 ├── SappyLogo.svg             # Black stroke logo export (80×80)
@@ -56,6 +57,7 @@ src/
 │   ├── LoginScreen.jsx       # Login flow (country + auth)
 │   ├── AuthScreen.jsx        # Email/password auth modal
 │   ├── TrackingScreen.jsx    # Cinematic mood selection + feedback
+│   ├── SettingsScreen.jsx    # Account management: sign-out + deletion
 │   └── LegalScreen.jsx       # Terms & Privacy Policy
 ├── components/
 │   ├── SappyLogo.jsx         # SVG logo component
@@ -92,27 +94,27 @@ enum Mood: String {
 ┌─────────┐    auth success    ┌──────────┐
 │  LOGIN   │ ─────────────────>│ TRACKING │
 └─────────┘                    └──────────┘
-                                     │
-                               cinematic entrance
-                                     │
-                                     ▼
-                              ┌──────────────┐
-                              │ MOOD SELECT  │ ← split faces, breathing idle
-                              └──────────────┘
-                                     │
-                                 tap face
-                                     │
-                                     ▼
-                              ┌──────────────┐
-                              │   FEEDBACK   │ ← counter, empathetic message
-                              └──────────────┘
-                                     │
-                               "change answer"
-                                     │
-                                     ▼
-                              ┌──────────────┐
-                              │ MOOD SELECT  │ ← spring reset
-                              └──────────────┘
+      ▲                              │
+      │                        cinematic entrance
+  sign out /                         │
+  delete account                     ▼
+      │                       ┌──────────────┐
+      │                       │ MOOD SELECT  │ ← split faces, breathing idle
+      │                       └──────────────┘
+      │                              │
+      │                          tap face
+      │                              │
+      │                              ▼
+      │                       ┌──────────────┐
+      │                       │   FEEDBACK   │ ← counter, empathetic message
+      │                       └──────────────┘
+      │                         │          │
+      │                   "change answer"  ⚙ settings
+      │                         │          │
+      │                         ▼          ▼
+      │                   ┌──────────┐  ┌──────────┐
+      └───────────────────│MOOD SELECT│  │ SETTINGS │
+                          └──────────┘  └──────────┘
 ```
 
 ---
@@ -249,7 +251,7 @@ Both faces breathe with opposite-phase scale (1.00 ↔ 1.02) and vertical oscill
 | Happy | "That's wonderful." | "Keep riding the wave.\nThe world is yours today." |
 | Sad | "Take a deep breath." | "It is completely okay to feel this way.\nTomorrow is a new start." |
 
-Plus: mocked global counter ("{count} people feel {mood} right now") and "Change my answer" reset button.
+Plus: live real-time Firestore counter ("{count} people feel {mood} right now"), per-country breakdown capsules, and "Change my answer" reset button.
 
 #### Reset Flow
 - "Change my answer" → medium haptic
@@ -313,34 +315,57 @@ Raw path data spans a `104×134` unit region originating at `(202.6, 198.5)`. Th
 
 ## 9. Persistence & Auth
 
-### Current State (iOS)
-- **No backend**. Auth is purely front-end.
-- `@AppStorage("hasCompletedFirstSignUp")` stores a boolean in `UserDefaults`.
-- If `true` on launch → skip country picker, go straight to sign-in options.
-- Selecting any auth method sets this to `true` and transitions to tracking.
-- Global mood counts are mocked (`happyCount: 12847`, `sadCount: 4392`).
+### Firebase Backend (iOS — Production)
+- **Project**: `sappy-caa9e` (region: `eur3`)
+- **Auth Providers**: Sign In with Apple (via `OAuthProvider.appleCredential`) + Email/Password
+- **Auth Flow**:
+  - `ContentView` checks `Auth.auth().currentUser` on launch → skips login if authenticated
+  - `LoginView` Sign In with Apple → generates cryptographic nonce → exchanges Apple credential for Firebase identity via `OAuthProvider.appleCredential(withIDToken:rawNonce:fullName:)`
+  - `SappyAuthView` Email/Password → `Auth.auth().createUser()` or `signIn()`
+  - Country stored as **ISO 3166-1 alpha-2 code** (e.g. `"US"`, `"GB"`) in `@AppStorage("userCountry")`
+- **Account Management** (`SappySettingsView`):
+  - Sign out: calls `Auth.auth().signOut()`, clears all `@AppStorage` keys, returns to `.login`
+  - Delete account: calls `Auth.auth().currentUser?.delete()`, handles `requiresRecentLogin` error, returns to `.login`
+- **Database (Firestore)**: Single document `metrics/global_counts`
+  - Schema: `total_happy: Int`, `total_sad: Int`, `countries: Map<"US" → {happy: Int, sad: Int}>`
+  - Country keys are ISO codes — displayed as capsules with country code + count
+  - Snapshot listener floors all counts at `max(0, ...)` to handle transient negatives from stale retracts
+- **Document Seeding**: `startSync()` checks document existence via `getDocument()` — seeds with initial zeros if missing
+- **Security Rules**: `allow read: if true; allow write: if request.auth != null;`
+- **Vote Logic**:
+  - Fresh vote: single `updateData` with `FieldValue.increment(1)` on mood + country
+  - Vote swap: single atomic `updateData` — decrements old + increments new in one call
+  - **No optimistic updates**: the snapshot listener is the single source of truth for all UI state
+  - Vote persisted in `@AppStorage("currentMood")` for session recovery only
+  - "Change my answer": returns to selection UI — vote stays active until new mood chosen
 
-### React Equivalent
+### React Native Equivalent
 ```jsx
-const hasCompletedFirstSignUp = await AsyncStorage.getItem('hasCompletedFirstSignUp');
+import auth from '@react-native-firebase/auth';
+import firestore from '@react-native-firebase/firestore';
 
-if (hasCompletedFirstSignUp === 'true') {
-  setAuthStep('signinOptions');
-} else {
-  setAuthStep('countrySelection');
-}
+// Auth
+await auth().createUserWithEmailAndPassword(email, password);
+// or
+await auth().signInAnonymously();
 
-// On successful auth:
-await AsyncStorage.setItem('hasCompletedFirstSignUp', 'true');
+// Fresh vote — single updateData
+const ref = firestore().collection('metrics').doc('global_counts');
+await ref.update({
+  total_happy: firestore.FieldValue.increment(1),
+  'countries.US.happy': firestore.FieldValue.increment(1)
+});
+
+// Vote Swap — single atomic updateData (decrement old + increment new)
+await ref.update({
+  total_sad: firestore.FieldValue.increment(-1),
+  'countries.US.sad': firestore.FieldValue.increment(-1),
+  total_happy: firestore.FieldValue.increment(1),
+  'countries.US.happy': firestore.FieldValue.increment(1)
+});
 ```
 
-### Country List
-```js
-const countries = [
-  "United States", "United Kingdom", "Canada", "Australia",
-  "Germany", "France", "Japan", "South Korea", "Brazil", "India"
-];
-```
+
 
 ---
 

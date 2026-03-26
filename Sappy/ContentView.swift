@@ -6,15 +6,20 @@
 //
 
 import SwiftUI
+import FirebaseAuth
 
 // MARK: - Root View
 
 /// The root view of Sappy. Acts as a state-driven router that
 /// crossfades between the authentication flow and the mood-tracking experience.
 ///
-/// `AppState` is defined in `SappyDesignTokens.swift`.
+/// On launch, checks `Auth.auth().currentUser` — if the user is already
+/// authenticated from a previous session, skips login entirely.
 struct ContentView: View {
-    @State private var appState: AppState = .login
+    /// Resolved synchronously before first render — no `.onAppear` delay,
+    /// no one-frame flash. Firebase Auth caches the session in the Keychain
+    /// so `currentUser` is non-nil immediately on relaunch.
+    @State private var appState: AppState = Auth.auth().currentUser != nil ? .tracking : .login
 
     var body: some View {
         ZStack {
@@ -26,7 +31,7 @@ struct ContentView: View {
                 LoginView(appState: $appState)
                     .transition(.opacity)
             case .tracking:
-                TrackingView()
+                TrackingView(appState: $appState)
                     .transition(.opacity)
             }
         }

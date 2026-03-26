@@ -13,7 +13,7 @@ import SwiftUI
 ///
 /// The app launches directly into `.login`. The `.splash` case is retained
 /// for a future reintroduction of the cinematic face-merge entrance.
-enum AppState {
+enum AppState: Sendable, Equatable {
     /// Archived splash animation (face-merge entrance). Currently bypassed.
     case splash
     /// Authentication flow: country selection → sign-in options.
@@ -27,7 +27,7 @@ enum AppState {
 /// Represents the binary mood choice available to the user.
 ///
 /// The raw value is used for display labels and future Firestore document keys.
-enum Mood: String {
+enum Mood: String, Sendable, CaseIterable {
     case happy = "happy"
     case sad = "sad"
 }
@@ -114,6 +114,34 @@ enum SappyDesign {
 
     /// Vertical offset for feedback content below the selected face.
     static let feedbackContentOffset: CGFloat = 80
+
+    // MARK: Utilities
+
+    /// Converts an ISO 3166-1 alpha-2 country code ("US", "GB") to its flag emoji ("🇺🇸", "🇬🇧").
+    /// Returns the raw code if conversion fails.
+    static func flagEmoji(for countryCode: String) -> String {
+        guard countryCode.count == 2 else { return countryCode }
+        
+        let uppercased = countryCode.uppercased()
+        
+        // Strict guard: ONLY perform math on exact A-Z uppercase Latin letters.
+        // If the string is already a flag emoji (from old UserDefaults), this prevents
+        // mathematically double-shifting it into unassigned [?] Unicode space!
+        let isLatin = uppercased.unicodeScalars.allSatisfy { 
+            $0.value >= 65 && $0.value <= 90 
+        }
+        
+        guard isLatin else { return countryCode }
+        
+        let base: UInt32 = 127397
+        let scalars = uppercased.unicodeScalars.compactMap {
+            UnicodeScalar(base + $0.value)
+        }
+        
+        var flag = ""
+        flag.unicodeScalars.append(contentsOf: scalars)
+        return flag.isEmpty ? countryCode : flag
+    }
 }
 
 // MARK: - Squishable Button Style

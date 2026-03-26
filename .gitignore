@@ -19,3 +19,15 @@ build/
 *.ipa
 *.dSYM.zip
 *.dSYM
+
+# Node.js (Firebase CLI / scripts)
+node_modules/
+package.json
+package-lock.json
+
+# Temporary debug/test scripts
+*.js
+test*.swift
+
+# Firebase
+firebase-debug.log

@@ -15,16 +15,16 @@ import FirebaseAuth
 
 /// Manages real-time data sync with Firestore for live global mood counts.
 ///
-/// ## Architecture
-/// - **Single document**: All global state lives in `metrics/global_counts`.
-/// - **Single write strategy**: Every mutation uses `updateData` with dot-notation
-///   paths. The document is guaranteed to exist via `ensureDocument()` on first sync.
-/// - **No optimistic updates**: The snapshot listener is the single source of truth
-///   for all `@Published` state. This eliminates double-counting, flicker, and
-///   desync between local and remote state.
-/// - **Persistence**: The user's vote is stored in `UserDefaults` so it survives
-///   app restarts. Firestore is the source of truth for counts; UserDefaults is
-///   the source of truth for "what did I vote for?"
+/// ## Architecture (v1.5 — Per-User Vote Deduplication)
+/// - **`users/{uid}`**: Stores the user's current mood and country. This is the
+///   source of truth for "what did I vote for?" — it follows the account across
+///   devices, preventing double-counting.
+/// - **`metrics/global_counts`**: Stores aggregated counts. Mutations use
+///   `FieldValue.increment()` for atomic updates.
+/// - **Startup flow**: `startSync()` reads `users/{uid}` first to hydrate local
+///   state. If the user already voted on another device, no new increment fires.
+/// - **`UserDefaults`**: Kept as a fast-launch cache only. Firestore overwrites it
+///   on every sync.
 @MainActor
 final class TrackingViewModel: ObservableObject {
     @Published var globalHappyCount: Int = 0
@@ -32,9 +32,10 @@ final class TrackingViewModel: ObservableObject {
     @Published var happyCountryStats: [(String, Int)] = []
     @Published var sadCountryStats: [(String, Int)] = []
 
-    // MARK: - Persisted State
+    // MARK: - Persisted State (UserDefaults cache)
 
-    /// The user's currently active mood vote, persisted across sessions.
+    /// The user's currently active mood vote, cached locally for fast relaunch.
+    /// Firestore `users/{uid}` is the actual source of truth.
     var storedMood: String {
         get { UserDefaults.standard.string(forKey: "currentMood") ?? "" }
         set {
@@ -43,7 +44,8 @@ final class TrackingViewModel: ObservableObject {
         }
     }
 
-    /// The user's country code, set during onboarding.
+    /// The user's country code, cached locally.
+    /// Firestore `users/{uid}` is the actual source of truth.
     private var storedCountry: String {
         get { UserDefaults.standard.string(forKey: "userCountry") ?? "" }
         set { UserDefaults.standard.set(newValue, forKey: "userCountry") }
@@ -69,19 +71,55 @@ final class TrackingViewModel: ObservableObject {
     private var listener: ListenerRegistration?
     private let docRef: DocumentReference
 
+    /// Prevents rapid-fire voting from corrupting state.
+    /// Set `true` on vote, reset after 0.6s cooldown.
+    private var isVoteCooldown = false
+
     init() {
         docRef = db.collection("metrics").document("global_counts")
     }
 
     // MARK: - Real-Time Sync
 
-    /// Ensures the global_counts document exists, then attaches a snapshot listener.
+    /// Hydrates user state from Firestore, ensures global_counts exists,
+    /// then attaches the snapshot listener.
     func startSync() {
         listener?.remove()
 
-        // Step 1: Guarantee the document exists BEFORE attaching the listener.
-        // Using a completion handler to avoid a race where vote() fires updateData
-        // before the seed document is created.
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+
+        let userDocRef = db.collection("users").document(uid)
+
+        // Step 1: Read the user's server-side vote state
+        userDocRef.getDocument { [weak self] snapshot, error in
+            guard let self else { return }
+
+            if let data = snapshot?.data() {
+                // User doc exists — hydrate local cache from server truth
+                let serverMood = data["mood"] as? String ?? ""
+                let serverCountry = data["country"] as? String ?? ""
+
+                if !serverMood.isEmpty {
+                    self.storedMood = serverMood
+                }
+                if !serverCountry.isEmpty {
+                    self.storedCountry = serverCountry
+                }
+            } else if !self.storedMood.isEmpty || !self.storedCountry.isEmpty {
+                // No user doc but local state exists — migrate to Firestore
+                var migrationData: [String: Any] = ["updatedAt": FieldValue.serverTimestamp()]
+                if !self.storedMood.isEmpty { migrationData["mood"] = self.storedMood }
+                if !self.storedCountry.isEmpty { migrationData["country"] = self.storedCountry }
+                userDocRef.setData(migrationData, merge: true)
+            }
+
+            // Step 2: Ensure global_counts exists, then attach listener
+            self.ensureGlobalDocAndListen()
+        }
+    }
+
+    /// Ensures `metrics/global_counts` exists, then attaches the snapshot listener.
+    private func ensureGlobalDocAndListen() {
         docRef.getDocument { [weak self] snapshot, error in
             guard let self else { return }
 
@@ -132,17 +170,34 @@ final class TrackingViewModel: ObservableObject {
     /// Submits or changes the user's mood vote.
     ///
     /// - **Same mood**: No-op.
-    /// - **First vote**: Single `updateData` incrementing the mood + country.
-    /// - **Vote swap**: Single `updateData` decrementing old + incrementing new.
+    /// - **First vote**: Increments mood + country in global_counts, writes to users/{uid}.
+    /// - **Vote swap**: Decrements old + increments new, updates users/{uid}.
     ///
-    /// No optimistic local updates — the snapshot listener handles all UI state.
+    /// The users/{uid} write ensures the vote follows the account, not the device.
     func vote(mood: Mood) {
         let previousMood = currentMood
         guard previousMood != mood else { return }
+        guard !isVoteCooldown else { return }
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+
+        // Cooldown: block rapid taps for 0.6s
+        isVoteCooldown = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+            self?.isVoteCooldown = false
+        }
 
         storedMood = mood.rawValue
         let country = userCountry
 
+        // Write vote state to per-user document (source of truth)
+        let userDocRef = db.collection("users").document(uid)
+        userDocRef.setData([
+            "mood": mood.rawValue,
+            "country": country,
+            "updatedAt": FieldValue.serverTimestamp()
+        ], merge: true)
+
+        // Update global aggregates
         if let oldMood = previousMood {
             // Swap: decrement old, increment new — single atomic updateData
             docRef.updateData([
@@ -163,6 +218,8 @@ final class TrackingViewModel: ObservableObject {
     // MARK: - Sign Out
 
     /// Signs the user out, retracting their active vote first.
+    /// Only clears mood state — country and hasCompletedFirstSignUp are UX cache
+    /// that should persist so returning users skip the country picker.
     func signOut() {
         listener?.remove()
         listener = nil
@@ -174,12 +231,13 @@ final class TrackingViewModel: ObservableObject {
             print("[Sappy] Sign out failed: \(error.localizedDescription)")
         }
 
-        clearPersistedState()
+        // Only clear mood — full wipe is reserved for deleteAccount()
+        storedMood = ""
     }
 
     // MARK: - Delete Account
 
-    /// Permanently deletes the user's Firebase account.
+    /// Permanently deletes the user's Firebase account and Firestore data.
     func deleteAccount(completion: @escaping @MainActor (String?) -> Void) {
         guard let user = Auth.auth().currentUser else {
             completion("No signed-in user found.")
@@ -187,6 +245,9 @@ final class TrackingViewModel: ObservableObject {
         }
 
         retractVote()
+
+        // Delete the per-user Firestore document
+        db.collection("users").document(user.uid).delete()
 
         user.delete { [weak self] error in
             Task { @MainActor [weak self] in
@@ -210,7 +271,7 @@ final class TrackingViewModel: ObservableObject {
 
     // MARK: - Private Helpers
 
-    /// Decrements the user's active vote from Firestore.
+    /// Decrements the user's active vote from Firestore and clears the user doc mood.
     private func retractVote() {
         guard let mood = currentMood else { return }
         let country = userCountry
@@ -219,6 +280,14 @@ final class TrackingViewModel: ObservableObject {
             "total_\(mood.rawValue)": FieldValue.increment(Int64(-1)),
             "countries.\(country).\(mood.rawValue)": FieldValue.increment(Int64(-1))
         ])
+
+        // Clear mood in user doc
+        if let uid = Auth.auth().currentUser?.uid {
+            db.collection("users").document(uid).updateData([
+                "mood": "",
+                "updatedAt": FieldValue.serverTimestamp()
+            ])
+        }
     }
 
     /// Resets all user-specific persisted state.

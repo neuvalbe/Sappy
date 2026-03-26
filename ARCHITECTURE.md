@@ -318,26 +318,80 @@ Raw path data spans a `104×134` unit region originating at `(202.6, 198.5)`. Th
 ### Firebase Backend (iOS — Production)
 - **Project**: `sappy-caa9e` (region: `eur3`)
 - **Auth Providers**: Sign In with Apple (via `OAuthProvider.appleCredential`) + Email/Password
-- **Auth Flow**:
-  - `ContentView` checks `Auth.auth().currentUser` on launch → skips login if authenticated
-  - `LoginView` Sign In with Apple → generates cryptographic nonce → exchanges Apple credential for Firebase identity via `OAuthProvider.appleCredential(withIDToken:rawNonce:fullName:)`
-  - `SappyAuthView` Email/Password → `Auth.auth().createUser()` or `signIn()`
-  - Country stored as **ISO 3166-1 alpha-2 code** (e.g. `"US"`, `"GB"`) in `@AppStorage("userCountry")`
-- **Account Management** (`SappySettingsView`):
-  - Sign out: calls `Auth.auth().signOut()`, clears all `@AppStorage` keys, returns to `.login`
-  - Delete account: calls `Auth.auth().currentUser?.delete()`, handles `requiresRecentLogin` error, returns to `.login`
-- **Database (Firestore)**: Single document `metrics/global_counts`
-  - Schema: `total_happy: Int`, `total_sad: Int`, `countries: Map<"US" → {happy: Int, sad: Int}>`
-  - Country keys are ISO codes — displayed as capsules with country code + count
-  - Snapshot listener floors all counts at `max(0, ...)` to handle transient negatives from stale retracts
-- **Document Seeding**: `startSync()` checks document existence via `getDocument()` — seeds with initial zeros if missing
-- **Security Rules**: `allow read: if true; allow write: if request.auth != null;`
-- **Vote Logic**:
-  - Fresh vote: single `updateData` with `FieldValue.increment(1)` on mood + country
-  - Vote swap: single atomic `updateData` — decrements old + increments new in one call
-  - **No optimistic updates**: the snapshot listener is the single source of truth for all UI state
-  - Vote persisted in `@AppStorage("currentMood")` for session recovery only
-  - "Change my answer": returns to selection UI — vote stays active until new mood chosen
+
+### State Architecture (v1.5)
+
+State is distributed across three independent stores. Understanding their lifecycle is critical:
+
+| Store | Scope | Survives | Contains |
+|---|---|---|---|
+| **Firebase Auth** (Keychain) | Per-device, persists across app installs | App reinstall ✅ | Authentication session |
+| **UserDefaults** | Per-device, persists across app builds | Clean build ✅, App delete ❌ | `currentMood` (cache), `userCountry` (cache), `hasCompletedFirstSignUp` (UX flag) |
+| **Firestore `users/{uid}`** | Per-account, shared across devices | Forever (server) | `mood`, `country`, `updatedAt` — **source of truth** |
+| **Firestore `metrics/global_counts`** | Global, single document | Forever (server) | `total_happy`, `total_sad`, `countries` map |
+
+### Auth Flow
+- `ContentView` checks `Auth.auth().currentUser` on launch → skips login if authenticated
+- `LoginView` Step 1: Country picker (first-time users) → Step 2: Sign-In options
+- Sign In with Apple: cryptographic nonce → `OAuthProvider.appleCredential(withIDToken:rawNonce:fullName:)`
+- Email/Password: `Auth.auth().createUser()` or `signIn()` via `SappyAuthView`
+- On auth success: country is written to **both** `UserDefaults` and `Firestore users/{uid}`
+- Country stored as **ISO 3166-1 alpha-2 code** (e.g. `"US"`, `"GB"`)
+
+### Per-User Vote Deduplication (v1.5)
+
+The vote state follows the **account**, not the device. This prevents double-counting when the same account is used across multiple devices (e.g., iPhone + Simulator).
+
+**Firestore Collections:**
+```
+metrics/global_counts           ← Aggregated counts (public read, auth write)
+  total_happy: Int
+  total_sad: Int
+  countries: Map<"US" → {happy: Int, sad: Int}>
+
+users/{uid}                     ← Per-user vote state (owner read/write only)
+  mood: String                  ← "happy" | "sad" | ""
+  country: String               ← ISO 3166-1 alpha-2
+  updatedAt: Timestamp
+```
+
+**Security Rules:**
+```
+match /metrics/{doc} { allow read: if true; allow write: if request.auth != null; }
+match /users/{userId} { allow read, write: if request.auth != null && request.auth.uid == userId; }
+```
+
+**Startup Sync (`startSync()`):**
+1. Read `users/{uid}` from Firestore
+2. If doc exists → hydrate `storedMood` and `storedCountry` from server (overwrites stale UserDefaults)
+3. If doc missing but local state exists → migrate UserDefaults to Firestore
+4. Ensure `metrics/global_counts` exists (self-healing seed)
+5. Attach snapshot listener
+
+**Vote Logic (`vote()`):**
+- **Same mood**: No-op (guard)
+- **Cooldown active**: No-op (0.6s debounce prevents rapid-fire corruption)
+- **First vote**: Write mood to `users/{uid}`, increment total + country in `global_counts`
+- **Vote swap**: Write new mood to `users/{uid}`, single atomic `updateData` — decrement old + increment new
+
+**Sign Out (`signOut()`):**
+- Retract vote (decrement from `global_counts`, clear mood in `users/{uid}`)
+- Clear `storedMood` only — **preserve** `userCountry` and `hasCompletedFirstSignUp` so returning users skip the country picker
+
+**Account Deletion (`deleteAccount()`):**
+- Retract vote
+- Delete `users/{uid}` document
+- Delete Firebase Auth account
+- Clear ALL persisted state (full wipe)
+
+### Resilience Features (v1.5)
+| Feature | Implementation |
+|---|---|
+| **Count flooring** | `max(0, ...)` on all snapshot values — handles transient negatives from stale retracts |
+| **Vote cooldown** | 0.6s `isVoteCooldown` flag — prevents rapid-tap race conditions |
+| **Country stat guardrail** | If `countryStats` is empty but user just voted, show their country with count 1 — eliminates async timing gap between Firestore write and snapshot delivery |
+| **Self-healing seed** | `startSync()` creates `global_counts` if missing |
+| **Migration path** | Local-only state (pre-v1.5) automatically migrated to `users/{uid}` on first sync |
 
 ### React Native Equivalent
 ```jsx
@@ -346,18 +400,26 @@ import firestore from '@react-native-firebase/firestore';
 
 // Auth
 await auth().createUserWithEmailAndPassword(email, password);
-// or
-await auth().signInAnonymously();
 
-// Fresh vote — single updateData
-const ref = firestore().collection('metrics').doc('global_counts');
-await ref.update({
+// Read user's vote state on login
+const userDoc = await firestore().collection('users').doc(uid).get();
+if (userDoc.exists) {
+  const { mood, country } = userDoc.data();
+  // Hydrate local state from server
+}
+
+// Fresh vote — write to user doc + global counts
+await firestore().collection('users').doc(uid).set(
+  { mood: 'happy', country: 'US', updatedAt: firestore.FieldValue.serverTimestamp() },
+  { merge: true }
+);
+await firestore().collection('metrics').doc('global_counts').update({
   total_happy: firestore.FieldValue.increment(1),
   'countries.US.happy': firestore.FieldValue.increment(1)
 });
 
-// Vote Swap — single atomic updateData (decrement old + increment new)
-await ref.update({
+// Vote Swap — single atomic updateData
+await firestore().collection('metrics').doc('global_counts').update({
   total_sad: firestore.FieldValue.increment(-1),
   'countries.US.sad': firestore.FieldValue.increment(-1),
   total_happy: firestore.FieldValue.increment(1),

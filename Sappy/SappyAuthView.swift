@@ -7,6 +7,7 @@
 
 import SwiftUI
 import FirebaseAuth
+import FirebaseFirestore
 
 // MARK: - Sappy Email/Password Auth Sheet
 
@@ -205,6 +206,20 @@ struct SappyAuthView: View {
     private func completeAuthentication() {
         UINotificationFeedbackGenerator().notificationOccurred(.success)
         hasCompletedFirstSignUp = true
+
+        // Persist country to Firestore so it follows the account across devices
+        if let uid = Auth.auth().currentUser?.uid {
+            let country = UserDefaults.standard.string(forKey: "userCountry") ?? ""
+            if !country.isEmpty {
+                let db = Firestore.firestore()
+                db.collection("users").document(uid).setData([
+                    "country": country,
+                    "mood": "",
+                    "updatedAt": FieldValue.serverTimestamp()
+                ], merge: true)
+            }
+        }
+
         dismiss()
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {

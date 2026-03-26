@@ -293,9 +293,20 @@ struct TrackingView: View {
             .animation(.easeOut(duration: 0.8).delay(0.1), value: showFeedbackText)
 
             // Country Breakdown Tracker
-            let countryStats: [(String, Int)] = mode == .happy
+            // Guardrail: if the snapshot hasn't delivered country data yet
+            // (async timing), show the user's own country with count 1.
+            // The snapshot listener will overwrite this within milliseconds.
+            let rawStats: [(String, Int)] = mode == .happy
                 ? viewModel.happyCountryStats
                 : viewModel.sadCountryStats
+
+            let countryStats: [(String, Int)] = {
+                if rawStats.isEmpty, let currentMood = viewModel.currentMood, currentMood == mode {
+                    let country = UserDefaults.standard.string(forKey: "userCountry") ?? ""
+                    if !country.isEmpty { return [(country, 1)] }
+                }
+                return rawStats
+            }()
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 20) {

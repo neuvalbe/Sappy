@@ -319,7 +319,7 @@ Raw path data spans a `104×134` unit region originating at `(202.6, 198.5)`. Th
 - **Project**: `sappy-caa9e` (region: `eur3`)
 - **Auth Providers**: Sign In with Apple (via `OAuthProvider.appleCredential`) + Email/Password
 
-### State Architecture (v1.5)
+### State Architecture (v2.0)
 
 State is distributed across three independent stores. Understanding their lifecycle is critical:
 
@@ -335,10 +335,10 @@ State is distributed across three independent stores. Understanding their lifecy
 - `LoginView` Step 1: Country picker (first-time users) → Step 2: Sign-In options
 - Sign In with Apple: cryptographic nonce → `OAuthProvider.appleCredential(withIDToken:rawNonce:fullName:)`
 - Email/Password: `Auth.auth().createUser()` or `signIn()` via `SappyAuthView`
-- On auth success: country is written to **both** `UserDefaults` and `Firestore users/{uid}`
+- On auth success: `AuthHelper.completeAuthentication()` writes country to **both** `UserDefaults` and `Firestore users/{uid}`
 - Country stored as **ISO 3166-1 alpha-2 code** (e.g. `"US"`, `"GB"`)
 
-### Per-User Vote Deduplication (v1.5)
+### Per-User Vote Deduplication (v2.0)
 
 The vote state follows the **account**, not the device. This prevents double-counting when the same account is used across multiple devices (e.g., iPhone + Simulator).
 
@@ -355,9 +355,15 @@ users/{uid}                     ← Per-user vote state (owner read/write only)
   updatedAt: Timestamp
 ```
 
-**Security Rules:**
+**Security Rules (v2.0 — field-validated):**
 ```
-match /metrics/{doc} { allow read: if true; allow write: if request.auth != null; }
+match /metrics/{doc} {
+  allow read: if true;
+  allow write: if request.auth != null
+    && request.resource.data.keys().hasOnly(['total_happy', 'total_sad', 'countries'])
+    && request.resource.data.total_happy is int
+    && request.resource.data.total_sad is int;
+}
 match /users/{userId} { allow read, write: if request.auth != null && request.auth.uid == userId; }
 ```
 
@@ -368,28 +374,34 @@ match /users/{userId} { allow read, write: if request.auth != null && request.au
 4. Ensure `metrics/global_counts` exists (self-healing seed)
 5. Attach snapshot listener
 
-**Vote Logic (`vote()`):**
+**Vote Logic (`vote()` — atomic `WriteBatch`):**
 - **Same mood**: No-op (guard)
 - **Cooldown active**: No-op (0.6s debounce prevents rapid-fire corruption)
-- **First vote**: Write mood to `users/{uid}`, increment total + country in `global_counts`
-- **Vote swap**: Write new mood to `users/{uid}`, single atomic `updateData` — decrement old + increment new
+- **First vote**: `WriteBatch` — write mood to `users/{uid}` + increment total + country in `global_counts` (atomic)
+- **Vote swap**: `WriteBatch` — write new mood to `users/{uid}` + decrement old + increment new in `global_counts` (atomic)
 
 **Sign Out (`signOut()`):**
-- Retract vote (decrement from `global_counts`, clear mood in `users/{uid}`)
+- Retract vote via atomic `WriteBatch` (decrement from `global_counts` + clear mood in `users/{uid}`)
 - Clear `storedMood` only — **preserve** `userCountry` and `hasCompletedFirstSignUp` so returning users skip the country picker
 
-**Account Deletion (`deleteAccount()`):**
-- Retract vote
-- Delete `users/{uid}` document
-- Delete Firebase Auth account
-- Clear ALL persisted state (full wipe)
+**Account Deletion (`deleteAccount()` — sequential chain):**
+1. Retract active vote via atomic `WriteBatch` (with completion handler)
+2. Delete `users/{uid}` document (chained after retract completes)
+3. Delete Firebase Auth account (chained after doc delete completes)
+4. Clear ALL persisted state (full wipe)
 
-### Resilience Features (v1.5)
+Operations are chained sequentially via callbacks to prevent race conditions (e.g., auth token invalidation before retract can write to Firestore).
+
+### Resilience Features (v2.0)
 | Feature | Implementation |
 |---|---|
+| **Atomic writes** | All multi-document mutations use `WriteBatch` — user doc + global counts succeed or fail together |
+| **Sequential delete** | `deleteAccount()` chains retract → doc delete → auth delete via callbacks |
+| **Error logging** | All Firestore writes log failures via `[Sappy]`-prefixed console messages |
 | **Count flooring** | `max(0, ...)` on all snapshot values — handles transient negatives from stale retracts |
 | **Vote cooldown** | 0.6s `isVoteCooldown` flag — prevents rapid-tap race conditions |
 | **Country stat guardrail** | If `countryStats` is empty but user just voted, show their country with count 1 — eliminates async timing gap between Firestore write and snapshot delivery |
+| **Field-validated rules** | `metrics` writes restricted to known fields (`total_happy`, `total_sad`, `countries`) with type validation |
 | **Self-healing seed** | `startSync()` creates `global_counts` if missing |
 | **Migration path** | Local-only state (pre-v1.5) automatically migrated to `users/{uid}` on first sync |
 
@@ -408,23 +420,34 @@ if (userDoc.exists) {
   // Hydrate local state from server
 }
 
-// Fresh vote — write to user doc + global counts
-await firestore().collection('users').doc(uid).set(
+// Fresh vote — atomic WriteBatch: user doc + global counts
+const batch = firestore().batch();
+const userRef = firestore().collection('users').doc(uid);
+const metricsRef = firestore().collection('metrics').doc('global_counts');
+
+batch.set(userRef,
   { mood: 'happy', country: 'US', updatedAt: firestore.FieldValue.serverTimestamp() },
   { merge: true }
 );
-await firestore().collection('metrics').doc('global_counts').update({
+batch.update(metricsRef, {
   total_happy: firestore.FieldValue.increment(1),
   'countries.US.happy': firestore.FieldValue.increment(1)
 });
+await batch.commit();
 
-// Vote Swap — single atomic updateData
-await firestore().collection('metrics').doc('global_counts').update({
+// Vote Swap — atomic WriteBatch: decrement old + increment new
+const swapBatch = firestore().batch();
+swapBatch.set(userRef,
+  { mood: 'happy', updatedAt: firestore.FieldValue.serverTimestamp() },
+  { merge: true }
+);
+swapBatch.update(metricsRef, {
   total_sad: firestore.FieldValue.increment(-1),
   'countries.US.sad': firestore.FieldValue.increment(-1),
   total_happy: firestore.FieldValue.increment(1),
   'countries.US.happy': firestore.FieldValue.increment(1)
 });
+await swapBatch.commit();
 ```
 
 

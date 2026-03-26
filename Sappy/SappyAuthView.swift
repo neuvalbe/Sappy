@@ -7,7 +7,7 @@
 
 import SwiftUI
 import FirebaseAuth
-import FirebaseFirestore
+
 
 // MARK: - Sappy Email/Password Auth Sheet
 
@@ -21,7 +21,7 @@ import FirebaseFirestore
 struct SappyAuthView: View {
     @Environment(\.dismiss) var dismiss
     @Binding var appState: AppState
-    @AppStorage("hasCompletedFirstSignUp") private var hasCompletedFirstSignUp: Bool = false
+
 
     // MARK: - State
 
@@ -204,29 +204,7 @@ struct SappyAuthView: View {
 
     /// Shared success path for both sign-up and sign-in.
     private func completeAuthentication() {
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
-        hasCompletedFirstSignUp = true
-
-        // Persist country to Firestore so it follows the account across devices
-        if let uid = Auth.auth().currentUser?.uid {
-            let country = UserDefaults.standard.string(forKey: "userCountry") ?? ""
-            if !country.isEmpty {
-                let db = Firestore.firestore()
-                db.collection("users").document(uid).setData([
-                    "country": country,
-                    "mood": "",
-                    "updatedAt": FieldValue.serverTimestamp()
-                ], merge: true)
-            }
-        }
-
-        dismiss()
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                appState = .tracking
-            }
-        }
+        AuthHelper.completeAuthentication(appState: $appState, dismiss: dismiss)
     }
 
     /// Maps Firebase error codes to user-friendly messages.

@@ -10,12 +10,7 @@ import SwiftUI
 // MARK: - App Navigation State
 
 /// Defines the top-level navigation states for the Sappy application.
-///
-/// The app launches directly into `.login`. The `.splash` case is retained
-/// for a future reintroduction of the cinematic face-merge entrance.
 enum AppState: Sendable, Equatable {
-    /// Archived splash animation (face-merge entrance). Currently bypassed.
-    case splash
     /// Authentication flow: country selection → sign-in options.
     case login
     /// Core experience: cinematic mood selection → feedback response.

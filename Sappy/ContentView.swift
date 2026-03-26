@@ -24,9 +24,6 @@ struct ContentView: View {
     var body: some View {
         ZStack {
             switch appState {
-            case .splash:
-                SplashView(appState: $appState)
-                    .transition(.opacity)
             case .login:
                 LoginView(appState: $appState)
                     .transition(.opacity)

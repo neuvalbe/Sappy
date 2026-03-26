@@ -8,7 +8,7 @@
 import SwiftUI
 import AuthenticationServices
 import FirebaseAuth
-import FirebaseFirestore
+
 import CryptoKit
 
 // MARK: - Auth Step
@@ -325,23 +325,8 @@ struct LoginView: View {
 
     /// Shared success path for all auth methods.
     private func completeAuthentication() {
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
-        hasCompletedFirstSignUp = true
         authError = nil
-
-        // Persist country to Firestore so it follows the account across devices
-        if let uid = Auth.auth().currentUser?.uid, !persistedCountry.isEmpty {
-            let db = Firestore.firestore()
-            db.collection("users").document(uid).setData([
-                "country": persistedCountry,
-                "mood": "",
-                "updatedAt": FieldValue.serverTimestamp()
-            ], merge: true)
-        }
-
-        withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-            appState = .tracking
-        }
+        AuthHelper.completeAuthentication(appState: $appState)
     }
 
     // MARK: - Crypto Helpers (SIWA Nonce)

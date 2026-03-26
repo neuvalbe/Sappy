@@ -1,10 +1,16 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Global mood metrics — anyone can read, only authenticated users can write
+    // Global mood metrics — anyone can read, only authenticated users can write.
+    // Field validation: only known fields allowed, counters must be integers.
     match /metrics/{doc} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow write: if request.auth != null
+        && request.resource.data.keys().hasOnly([
+          'total_happy', 'total_sad', 'countries'
+        ])
+        && request.resource.data.total_happy is int
+        && request.resource.data.total_sad is int;
     }
 
     // Per-user vote state — each user can only read/write their own document

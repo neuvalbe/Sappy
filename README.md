@@ -50,14 +50,14 @@ Sappy/
 ├── SappyApp.swift              # @main entry, font registration
 ├── SappyDesignTokens.swift     # Types, design tokens, SquishableButtonStyle
 ├── ContentView.swift           # Root state router (.login ↔ .tracking)
+├── AuthHelper.swift            # Centralized post-auth logic (country persist, state transition)
 ├── LoginView.swift             # 2-step auth: country picker → sign-in options
 ├── SappyAuthView.swift         # Email/password auth sheet
 ├── SappyLegalView.swift        # Terms of Service & Privacy Policy
 ├── TrackingView.swift          # Cinematic mood selection + feedback
-├── TrackingViewModel.swift     # Firestore sync, vote logic, account mgmt
+├── TrackingViewModel.swift     # Firestore sync, atomic vote logic, account mgmt
 ├── SappySettingsView.swift     # Sign-out + account deletion
-├── SappyLogoShape.swift        # SVG path data for ):) logo
-└── SplashView.swift            # [Archived] face-merge splash animation
+└── SappyLogoShape.swift        # SVG path data for ):) logo
 ```
 
 ---
@@ -89,6 +89,10 @@ users/{uid}                        ← Per-user vote state (owner access only)
 
 ### Resilience
 
+- **Atomic writes** — All multi-document mutations use `WriteBatch` (user doc + global counts succeed or fail together)
+- **Sequential delete** — `deleteAccount()` chains retract → doc delete → auth delete via callbacks
+- **Error logging** — All Firestore writes log failures via `[Sappy]`-prefixed console messages
+- **Field-validated rules** — `metrics` writes restricted to known fields with type validation
 - **Vote cooldown** (0.6s) — Prevents rapid-tap race conditions
 - **Count flooring** — `max(0, ...)` handles transient negatives
 - **Optimistic country guardrail** — Shows user's country immediately before snapshot arrives
@@ -102,7 +106,10 @@ users/{uid}                        ← Per-user vote state (owner access only)
 ```
 match /metrics/{doc} {
   allow read: if true;
-  allow write: if request.auth != null;
+  allow write: if request.auth != null
+    && request.resource.data.keys().hasOnly(['total_happy', 'total_sad', 'countries'])
+    && request.resource.data.total_happy is int
+    && request.resource.data.total_sad is int;
 }
 
 match /users/{userId} {

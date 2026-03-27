@@ -42,10 +42,12 @@ Sappy/
 ├── SappyLegalView.swift      # Terms of Service & Privacy Policy sheet
 ├── TrackingView.swift        # Cinematic mood selection → feedback response
 ├── SappySettingsView.swift   # Account management: sign-out + account deletion
-├── SappyLogoShape.swift      # SwiftUI Shape — SVG path data for ):) logo
-├── SplashView.swift          # ARCHIVED — face-merge splash animation (bypassed)
-├── SappyLogo.svg             # Black stroke logo export (80×80)
-└── SappyLogo_Red.svg         # Red gradient logo export (256×256)
+└── SappyLogoShape.swift      # SwiftUI Shape — SVG path data for ):) logo
+```
+
+**Project Root:**
+```
+SappyLogo.svg                 # Black stroke logo export (80×80)
 ```
 
 ### React Equivalent Structure
@@ -75,7 +77,6 @@ src/
 ### AppState Enum
 ```
 enum AppState {
-    case splash   // Archived — bypassed (initial state is .login)
     case login    // Authentication flow
     case tracking // Cinematic mood selection → feedback
 }
@@ -134,6 +135,8 @@ All tokens are defined in `SappyDesignTokens.swift` → `SappyDesign` namespace.
 | `inputBorderOpacity` | `0.1` | Input field border |
 | `disabledOpacity` | `0.2` | Disabled button fill |
 | `brandGradient` | `#FF3333 → #CC0000` | Selected mood faces |
+| `happySubtitleColor` | `Color(red: 0.99, green: 0.87, blue: 0.03)` ≈ `#FDDE08` | "feels happy right now" text + glow (radius 8, 60% opacity) |
+| `sadSubtitleColor` | `Color(red: 0.4, green: 0.55, blue: 0.78)` ≈ `#668CC7` | "feels sad right now" text + glow (radius 8, 50% opacity) |
 
 ### Typography
 | Element | Size | Weight | Style |
@@ -252,6 +255,8 @@ Both faces breathe with opposite-phase scale (1.00 ↔ 1.02) and vertical oscill
 | Sad | "Take a deep breath." | "It is completely okay to feel this way.\nTomorrow is a new start." |
 
 Plus: live real-time Firestore counter ("{count} people feel {mood} right now"), per-country breakdown capsules, and "Change my answer" reset button.
+
+The subtitle "feels {mood} right now" is color-coded: **brand yellow** (`#FDDE08`) with a warm glow for happy, **steel blue** (`#668CC7`) with a cool glow for sad.
 
 #### Reset Flow
 - "Change my answer" → medium haptic

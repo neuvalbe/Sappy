@@ -1,7 +1,7 @@
 # Sappy
 
 ## Tech Specs & Session Log
-**Last Updated**: March 26, 2026 (v2.0)
+**Last Updated**: March 27, 2026 (v2.1)
 
 ### 1. Goal
 A minimalist iOS mood-tracking app with a cinematic, physics-based experience. Users authenticate, then choose whether they're happy or sad via interactive face taps. The app responds with an empathetic message and a live global mood counter with per-country breakdown. The identity revolves around the `):)` logo — a merged sad `):(` and happy `(:)` face sharing colon eyes.
@@ -40,14 +40,14 @@ If `Auth.auth().currentUser` exists on launch, `.login` is skipped and the app g
 - **Logo stroke**: 6pt (login), 10pt (tracking), round caps/joins
 - **Typography**: Dela Gothic One universally
 - **Button style**: `SquishableButtonStyle` — 0.96 scale on press, 0.2s ease-out
+- **Mood subtitle colors**: Brand yellow `#FDDE08` (happy) with warm glow, steel blue `#668CC7` (sad) with cool glow — `shadow(radius: 8)`
 - **Haptics**: `.soft` (split), `.rigid` (mood select), `.medium` (reset, continue), `.success/.error` (auth)
 - **Layout**: 56px buttons, 16px corners, 32px horizontal padding
 
 ### 5. Assets
 | File | Description |
 |---|---|
-| `SappyLogo.svg` | Black stroke logo, 80×80 viewBox |
-| `SappyLogo_Red.svg` | Red gradient logo, 256×256, matching splash aesthetic |
+| `SappyLogo.svg` | Black stroke logo, 80×80 viewBox (project root) |
 | `DelaGothicOne-Regular.ttf` | Bundled brand typeface |
 
 ### 6. Components

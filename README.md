@@ -22,6 +22,7 @@ The brand identity is the `):)` logo — a merged sad `):(` and happy `(:)` face
 - **Real-time global counter** — See how many people feel the same way, right now
 - **Country breakdown** — Per-country mood stats displayed as capsules (ISO 3166-1 alpha-2)
 - **Cinematic UI** — Physics-based spring animations, breathing idle state, staggered reveals
+- **Mood-colored subtitles** — Brand yellow glow (happy), steel blue glow (sad)
 - **Cross-device sync** — Vote state follows your account, not your device
 - **Vote deduplication** — Same account on multiple devices = one vote
 - **Sign In with Apple** — Native Apple credential flow via Firebase
@@ -138,9 +139,10 @@ match /users/{userId} {
 | Script | Purpose |
 |---|---|
 | `node read_firestore.js` | Read current `global_counts` document |
+| `node seed_firestore.js` | Wipe and re-seed `global_counts` to clean state |
 | `node wipe_firestore.js` | Reset all Firestore data (metrics + users) |
 
-> Note: Admin scripts require `firebase-admin` SDK credentials.
+> Note: Admin scripts require `firebase-admin` SDK credentials (Application Default or service account).
 
 ---
 

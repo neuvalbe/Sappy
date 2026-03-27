@@ -287,7 +287,8 @@ struct TrackingView: View {
 
                 Text("\(count == 1 ? "feels" : "feel") \(mode.rawValue) right now")
                     .font(.custom(SappyDesign.fontFamily, size: 16))
-                    .foregroundColor(mode == .happy ? .white.opacity(0.7) : .black.opacity(SappyDesign.textTertiaryOpacity))
+                    .foregroundColor(mode == .happy ? Color(red: 0.99, green: 0.87, blue: 0.03) : Color(red: 0.4, green: 0.55, blue: 0.78))
+                    .shadow(color: mode == .happy ? Color(red: 0.99, green: 0.87, blue: 0.03).opacity(0.6) : Color(red: 0.4, green: 0.55, blue: 0.78).opacity(0.5), radius: 8, x: 0, y: 0)
             }
             .offset(y: showFeedbackText ? 0 : 20)
             .animation(.easeOut(duration: 0.8).delay(0.1), value: showFeedbackText)

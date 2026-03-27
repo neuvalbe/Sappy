@@ -25,8 +25,13 @@ node_modules/
 package.json
 package-lock.json
 
-# Temporary debug/test scripts
-*.js
+# Credentials — NEVER commit
+serviceAccountKey.json
+*.pem
+*.key
+
+# Temporary debug/test scripts (admin scripts like read/seed/wipe are intentionally tracked)
+test*.js
 test*.swift
 
 # Firebase

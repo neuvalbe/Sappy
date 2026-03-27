@@ -181,7 +181,11 @@ struct SappyAuthView: View {
                     if !name.trimmingCharacters(in: .whitespaces).isEmpty {
                         let changeRequest = authResult?.user.createProfileChangeRequest()
                         changeRequest?.displayName = name.trimmingCharacters(in: .whitespaces)
-                        changeRequest?.commitChanges(completion: nil)
+                        changeRequest?.commitChanges { error in
+                            if let error {
+                                print("[Sappy] Display name update failed: \(error.localizedDescription)")
+                            }
+                        }
                     }
                     
                     completeAuthentication()

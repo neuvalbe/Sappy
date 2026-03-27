@@ -250,16 +250,21 @@ final class TrackingViewModel: ObservableObject {
     func signOut() {
         listener?.remove()
         listener = nil
-        retractVote()
 
-        do {
-            try Auth.auth().signOut()
-        } catch {
-            print("[Sappy] Sign out failed: \(error.localizedDescription)")
+        // Retract vote first — auth.signOut() is chained AFTER the batch
+        // commits to prevent invalidating the token before the write succeeds.
+        retractVote { [weak self] in
+            guard let self else { return }
+
+            do {
+                try Auth.auth().signOut()
+            } catch {
+                print("[Sappy] Sign out failed: \(error.localizedDescription)")
+            }
+
+            // Only clear mood — full wipe is reserved for deleteAccount()
+            self.storedMood = ""
         }
-
-        // Only clear mood — full wipe is reserved for deleteAccount()
-        storedMood = ""
     }
 
     // MARK: - Delete Account

@@ -46,9 +46,15 @@ enum SappyDesign {
     /// Tertiary text opacity level (disclaimers, labels).
     static let textTertiaryOpacity: Double = 0.4
 
+    /// Quaternary text opacity level (icons).
+    static let textQuaternaryOpacity: Double = 0.2
+
 
     /// Input field background fill opacity.
     static let inputBackgroundOpacity: Double = 0.04
+
+    /// Input field border stroke opacity.
+    static let inputBorderOpacity: Double = 0.08
 
 
     /// Disabled button background opacity.
@@ -70,6 +76,9 @@ enum SappyDesign {
 
     /// Horizontal content padding for auth screens.
     static let horizontalPadding: CGFloat = 32
+
+    /// Bottom content padding for auth screens.
+    static let bottomPadding: CGFloat = 40
 
 
     // MARK: Tracking View Layout

@@ -149,6 +149,7 @@ Credentials: use Application Default Credentials (`firebase login` / `gcloud aut
 5. **v2.1**: Mood-colored subtitles — brand yellow glow (happy), steel blue glow (sad)
 6. **v2.2 audit fixes**: Deleted junk files, fixed `.gitignore`, chained `signOut()` after batch commit, logged `displayName` errors, removed dead `auth` block from `firebase.json`
 7. All docs (`ARCHITECTURE.md`, `TECH_SPECS.md`, `README.md`) synced to actual codebase state
+8. **Auth UI Fixes**: Restored accidentally deleted tokens (`inputBorderOpacity`, `bottomPadding`, `textQuaternaryOpacity`) required by `SappyAuthView` and `LoginView`.
 
 ---
 

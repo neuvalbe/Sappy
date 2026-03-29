@@ -31,6 +31,8 @@ struct SappyAuthView: View {
     @State private var password = ""
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var isForgotPassword = false
+    @State private var successMessage: String?
 
     // MARK: - Body
 
@@ -43,11 +45,11 @@ struct SappyAuthView: View {
                     // MARK: Header
 
                     VStack(spacing: 8) {
-                        Text(isSignUp ? "Create Account" : "Welcome Back")
+                        Text(isForgotPassword ? "Reset Password" : (isSignUp ? "Create Account" : "Welcome Back"))
                             .font(.custom(SappyDesign.fontFamily, size: 28))
                             .foregroundColor(SappyDesign.textPrimary)
 
-                        Text(isSignUp ? "Join the Sappy community." : "Sign in to continue feeling.")
+                        Text(isForgotPassword ? "Enter your email for a reset link." : (isSignUp ? "Join the Sappy community." : "Sign in to continue feeling."))
                             .font(.custom(SappyDesign.fontFamily, size: 14))
                             .foregroundColor(Color.black.opacity(SappyDesign.textSecondaryOpacity))
                     }
@@ -57,14 +59,34 @@ struct SappyAuthView: View {
                     // MARK: Form Fields
 
                     VStack(spacing: 16) {
-                        if isSignUp {
+                        if isSignUp && !isForgotPassword {
                             SappyTextField(placeholder: "Full Name", text: $name, keyboardType: .default, textContentType: .name)
                         }
 
                         SappyTextField(placeholder: "Email Address", text: $email, keyboardType: .emailAddress, textContentType: .emailAddress)
                             .textInputAutocapitalization(.never)
 
-                        SappyTextField(placeholder: "Password", text: $password, keyboardType: .default, textContentType: isSignUp ? .newPassword : .password, isSecure: true)
+                        if !isForgotPassword {
+                            SappyTextField(placeholder: "Password", text: $password, keyboardType: .default, textContentType: isSignUp ? .newPassword : .password, isSecure: true)
+                        }
+                    }
+
+                    if !isSignUp && !isForgotPassword {
+                        HStack {
+                            Spacer()
+                            Button(action: {
+                                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                    isForgotPassword = true
+                                    errorMessage = nil
+                                    successMessage = nil
+                                }
+                            }) {
+                                Text("Forgot password?")
+                                    .font(.custom(SappyDesign.fontFamily, size: 13))
+                                    .foregroundColor(Color.black.opacity(SappyDesign.textSecondaryOpacity))
+                            }
+                        }
+                        .padding(.top, -8)
                     }
 
                     // MARK: Error Message
@@ -77,13 +99,21 @@ struct SappyAuthView: View {
                             .transition(.opacity.combined(with: .offset(y: -5)))
                     }
 
+                    if let successMessage = successMessage {
+                        Text(successMessage)
+                            .font(.custom(SappyDesign.fontFamily, size: 13))
+                            .foregroundColor(.green.opacity(0.9))
+                            .multilineTextAlignment(.center)
+                            .transition(.opacity.combined(with: .offset(y: -5)))
+                    }
+
                     // MARK: Submit Button
 
                     Button(action: {
                         handleAuth()
                     }) {
                         ZStack {
-                            Text(isSignUp ? "Sign Up" : "Sign In")
+                            Text(isForgotPassword ? "Send Link" : (isSignUp ? "Sign Up" : "Sign In"))
                                 .font(.custom(SappyDesign.fontFamily, size: 16))
                                 .fontWeight(.bold)
                                 .foregroundColor(.white)
@@ -107,17 +137,28 @@ struct SappyAuthView: View {
 
                     Button(action: {
                         withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                            isSignUp.toggle()
+                            if isForgotPassword {
+                                isForgotPassword = false
+                            } else {
+                                isSignUp.toggle()
+                            }
                             errorMessage = nil
+                            successMessage = nil
                         }
                     }) {
                         HStack(spacing: 4) {
-                            Text(isSignUp ? "Already have an account?" : "Don't have an account?")
-                                .foregroundColor(Color.black.opacity(SappyDesign.textSecondaryOpacity))
+                            if isForgotPassword {
+                                Text("Wait, I remember my password.")
+                                    .foregroundColor(SappyDesign.textPrimary)
+                                    .fontWeight(.semibold)
+                            } else {
+                                Text(isSignUp ? "Already have an account?" : "Don't have an account?")
+                                    .foregroundColor(Color.black.opacity(SappyDesign.textSecondaryOpacity))
 
-                            Text(isSignUp ? "Sign In" : "Sign Up")
-                                .foregroundColor(SappyDesign.textPrimary)
-                                .fontWeight(.semibold)
+                                Text(isSignUp ? "Sign In" : "Sign Up")
+                                    .foregroundColor(SappyDesign.textPrimary)
+                                    .fontWeight(.semibold)
+                            }
                         }
                         .font(.custom(SappyDesign.fontFamily, size: 13))
                     }
@@ -149,7 +190,9 @@ struct SappyAuthView: View {
 
     /// Returns `true` when all required fields are non-empty and password ≥ 6 chars.
     private var isFormValid: Bool {
-        if isSignUp {
+        if isForgotPassword {
+            return !email.trimmingCharacters(in: .whitespaces).isEmpty
+        } else if isSignUp {
             return !name.trimmingCharacters(in: .whitespaces).isEmpty
                 && !email.trimmingCharacters(in: .whitespaces).isEmpty
                 && password.count >= 6
@@ -165,9 +208,31 @@ struct SappyAuthView: View {
     private func handleAuth() {
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         errorMessage = nil
+        successMessage = nil
         isLoading = true
 
-        if isSignUp {
+        if isForgotPassword {
+            Auth.auth().sendPasswordReset(withEmail: email.trimmingCharacters(in: .whitespaces)) { error in
+                DispatchQueue.main.async {
+                    isLoading = false
+                    if let error = error {
+                        UINotificationFeedbackGenerator().notificationOccurred(.error)
+                        errorMessage = Self.friendlyError(error)
+                        return
+                    }
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    successMessage = "Reset link sent! Please check your inbox."
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                        if successMessage != nil {
+                            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                isForgotPassword = false
+                                successMessage = nil
+                            }
+                        }
+                    }
+                }
+            }
+        } else if isSignUp {
             Auth.auth().createUser(withEmail: email.trimmingCharacters(in: .whitespaces), password: password) { authResult, error in
                 DispatchQueue.main.async {
                     isLoading = false

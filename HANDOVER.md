@@ -59,7 +59,7 @@
 | `src/app/privacy/page.tsx` | Public Privacy Policy (no auth required) |
 | `src/components/AuthModal.tsx` | Sign-in only (no sign-up) email/password form |
 | `src/components/AuraBackground.tsx` | Framer Motion orbital gradients + SVG noise filter |
-| `src/components/AuraContent.tsx` | Mood word, subtitle, global stats, country breakdown |
+| `src/components/AuraContent.tsx` | Mood word, global % and local % metrics |
 | `src/components/ProfileDrawer.tsx` | Profile info, legal docs, support, account management |
 
 ### Config & Admin
@@ -142,7 +142,7 @@ Step 4: deleteUser(auth) ← LAST (invalidates token)
 - [x] Atomic vote casting with `WriteBatch`
 - [x] Vote retraction (toggle behavior)
 - [x] Vote cooldown (0.6s debounce)
-- [x] Country breakdown display (ISO 3166-1 capsules)
+- [x] Global and Local contextual percentage displays
 - [x] Cinematic UI (spring animations, breathing idle, staggered reveals)
 - [x] Account deletion (Apple 5.1.1(v) compliant)
 - [x] Terms of Service + Privacy Policy in-app
@@ -238,3 +238,5 @@ NEXT_PUBLIC_FIREBASE_APP_ID=
 | 2026-03-24 | iOS Production Audit | Dead code removal, signOut race fix, full doc sync |
 | 2026-03-28 | Web Companion Build | Auth modal, Ambient Aura, real-time listeners, profile drawer |
 | 2026-03-29 | Web Finalization | WriteBatch deletion fix, static export config, TS6 compat, dead code purge, doc sync |
+| 2026-03-29 | Cross-Platform Features | Forgot Password inline UI morphing on iOS `SappyAuthView` & Web `AuthModal` |
+| 2026-03-29 | Cross-Platform Features | Global & Local Percentage Tracking (Replaced capsules with dual `%` UI) |

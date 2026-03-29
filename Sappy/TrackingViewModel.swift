@@ -35,6 +35,38 @@ final class TrackingViewModel: ObservableObject {
     @Published var happyCountryStats: [(String, Int)] = []
     @Published var sadCountryStats: [(String, Int)] = []
 
+    // MARK: - Computed Metrics
+
+    /// The user's active country code for UI display
+    var activeCountry: String {
+        return userCountry
+    }
+
+    /// Primary Metric: Percentage of world sharing the same mood
+    var globalPercentage: Int {
+        let total = globalHappyCount + globalSadCount
+        guard total > 0, let mood = currentMood else { return 100 }
+        let myGlobal = mood == .happy ? globalHappyCount : globalSadCount
+        return Int(round((Double(myGlobal) / Double(total)) * 100))
+    }
+
+    /// Secondary Metric: Percentage of people in the active country sharing the same mood
+    var localPercentage: Int {
+        guard let mood = currentMood else { return 100 }
+        
+        let myLocalCount = (mood == .happy ? happyCountryStats : sadCountryStats)
+            .first(where: { $0.0 == userCountry })?.1 ?? 0
+            
+        let oppositeLocalCount = (mood == .happy ? sadCountryStats : happyCountryStats)
+            .first(where: { $0.0 == userCountry })?.1 ?? 0
+            
+        let totalLocal = myLocalCount + oppositeLocalCount
+        
+        // If snapshot implies 0 locally but user voted, it means snapshot is still incoming
+        if totalLocal == 0 { return 100 }
+        return Int(round((Double(myLocalCount) / Double(totalLocal)) * 100))
+    }
+
     // MARK: - Persisted State (UserDefaults cache)
 
     /// The user's currently active mood vote, cached locally for fast relaunch.

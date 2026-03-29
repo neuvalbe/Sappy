@@ -3,18 +3,14 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { MoodType } from "./AuraBackground";
 
-interface CountryCount {
-  code: string;
-  count: number;
-}
-
 interface AuraContentProps {
   mood: MoodType | null; 
-  globalCount: number;
-  countries: CountryCount[];
+  globalPercentage: number;
+  localPercentage: number;
+  countryCode: string;
 }
 
-export default function AuraContent({ mood, globalCount, countries }: AuraContentProps) {
+export default function AuraContent({ mood, globalPercentage, localPercentage, countryCode }: AuraContentProps) {
   // If no auth state yet, show nothing
   if (mood === null) return null;
 
@@ -27,17 +23,15 @@ export default function AuraContent({ mood, globalCount, countries }: AuraConten
       
   const accentClass = mood === "happy" ? "text-[#FDDE08]" : "text-[#668CC7]";
 
-  const getFlagEmoji = (countryCode: string) => {
-    if (!countryCode) return "";
-    return String.fromCodePoint(
-      ...countryCode
-        .toUpperCase()
-        .split("")
-        .map((c) => 127397 + c.charCodeAt(0))
-    );
-  };
-
-  const displayCount = Math.max(1, globalCount);
+  let countryName = countryCode;
+  try {
+    if (countryCode) {
+      const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
+      countryName = regionNames.of(countryCode) || countryCode;
+    }
+  } catch (e) {
+    // fallback
+  }
 
   // Staggered cinematic reveal
   const containerVariants = {
@@ -84,32 +78,25 @@ export default function AuraContent({ mood, globalCount, countries }: AuraConten
               {mood}.
             </motion.h1>
 
-            {/* Global Stats Footer */}
+            {/* Percentage Stats Footer */}
             <motion.div 
               variants={itemVariants}
-              className="absolute bottom-8 sm:bottom-12 left-0 right-0 flex flex-col items-center gap-2 pointer-events-auto px-4"
+              className="absolute bottom-8 sm:bottom-12 left-0 right-0 flex flex-col items-center gap-6 pointer-events-auto px-4"
             >
-              <p className="text-[13px] sm:text-[16px] md:text-[20px] opacity-60 font-light tracking-wide text-center">
-                <span className={`font-bold opacity-100 ${accentClass}`}>
-                  {displayCount.toLocaleString()}
-                </span>{" "}
-                others feel this right now
-              </p>
+              {/* Primary Metric: Global Percentage */}
+              <div className="flex flex-col items-center gap-2">
+                <p className={`text-[20px] sm:text-[24px] tracking-wide ${textColor} ${mood === "happy" ? "opacity-85" : "opacity-100"}`}>
+                  {globalPercentage}% of the world
+                </p>
+                <p className={`text-[14px] sm:text-[16px] tracking-wide ${accentClass} drop-shadow-md`}>
+                  feels {mood} right now
+                </p>
+              </div>
 
-              {/* Country breakdown pills */}
-              {countries.length > 0 && (
-                <div className="flex gap-1.5 sm:gap-2 mt-2 sm:mt-4 flex-wrap max-w-lg justify-center">
-                  {countries.slice(0, 5).map((c) => (
-                    <div
-                      key={c.code}
-                      className="flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full border border-current opacity-40 hover:opacity-100 transition-opacity backdrop-blur-sm"
-                    >
-                      <span className="text-[12px] sm:text-[14px]">{getFlagEmoji(c.code)}</span>
-                      <span className="text-[10px] sm:text-[12px]">{c.count.toLocaleString()}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
+              {/* Secondary Metric: Local Percentage */}
+              <p className={`text-[12px] sm:text-[14px] text-center tracking-wide ${textColor} ${mood === "happy" ? "opacity-60" : "opacity-70"}`}>
+                {localPercentage}% of people in {countryName} also feel {mood}
+              </p>
             </motion.div>
           </motion.div>
         )}

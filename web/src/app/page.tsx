@@ -21,10 +21,8 @@ export default function SappyPage() {
   const [authChecked, setAuthChecked] = useState(false);
   const [userMood, setUserMood] = useState<MoodType>(null);
   const [globalCounts, setGlobalCounts] = useState({ happy: 0, sad: 0 });
-  const [countriesLists, setCountriesLists] = useState<{
-    happy: CountryData[];
-    sad: CountryData[];
-  }>({ happy: [], sad: [] });
+  const [userCountry, setUserCountry] = useState<string>("US");
+  const [countriesData, setCountriesData] = useState<Record<string, {happy: number, sad: number}>>({});
 
   const unsubRealtimeRef = useRef<(() => void) | null>(null);
   const unsubUserRef = useRef<(() => void) | null>(null);
@@ -49,11 +47,18 @@ export default function SappyPage() {
           unsubUserRef.current = onSnapshot(
             doc(db, "users", currentUser.uid),
             (snap) => {
-              const moodValue = snap.exists() ? snap.data().mood : null;
-              if (moodValue === "happy" || moodValue === "sad") {
-                setUserMood(moodValue);
+              if (snap.exists()) {
+                const data = snap.data();
+                if (data.country) setUserCountry(data.country);
+                
+                const moodValue = data.mood;
+                if (moodValue === "happy" || moodValue === "sad") {
+                  setUserMood(moodValue);
+                } else {
+                  setUserMood("none"); // Authenticated but no mood
+                }
               } else {
-                setUserMood("none"); // Authenticated but no mood
+                setUserMood("none");
               }
             },
             (err) => {
@@ -74,22 +79,7 @@ export default function SappyPage() {
                 });
 
                 const countriesObj = data.countries || {};
-                const countryArray = Object.keys(countriesObj).map((code) => ({
-                  code,
-                  happy: Math.max(0, countriesObj[code]?.happy || 0),
-                  sad: Math.max(0, countriesObj[code]?.sad || 0),
-                }));
-
-                setCountriesLists({
-                  happy: countryArray
-                    .map((c) => ({ code: c.code, count: c.happy }))
-                    .filter((c) => c.count > 0)
-                    .sort((a, b) => b.count - a.count),
-                  sad: countryArray
-                    .map((c) => ({ code: c.code, count: c.sad }))
-                    .filter((c) => c.count > 0)
-                    .sort((a, b) => b.count - a.count),
-                });
+                setCountriesData(countriesObj);
               }
             }
           );
@@ -112,8 +102,25 @@ export default function SappyPage() {
     return <div className="h-[100dvh] w-full bg-black" />; // Loading block
   }
 
-  const activeCount = userMood === "happy" ? globalCounts.happy : userMood === "sad" ? globalCounts.sad : 0;
-  const activeCountries = userMood === "happy" ? countriesLists.happy : userMood === "sad" ? countriesLists.sad : [];
+  let globalPercentage = 100;
+  let localPercentage = 100;
+
+  if (userMood === "happy" || userMood === "sad") {
+    // 1. Global Percentage
+    const globalTotal = globalCounts.happy + globalCounts.sad;
+    const myGlobal = userMood === "happy" ? globalCounts.happy : globalCounts.sad;
+    if (globalTotal > 0) {
+      globalPercentage = Math.round((myGlobal / globalTotal) * 100);
+    }
+    
+    // 2. Local Percentage
+    const stats = countriesData[userCountry] || { happy: 0, sad: 0 };
+    const localTotal = (stats.happy || 0) + (stats.sad || 0);
+    const myLocal = userMood === "happy" ? (stats.happy || 0) : (stats.sad || 0);
+    if (localTotal > 0) {
+      localPercentage = Math.round((myLocal / localTotal) * 100);
+    }
+  }
 
   return (
     <main className="relative h-[100dvh] w-full overflow-hidden font-dela bg-black">
@@ -126,8 +133,9 @@ export default function SappyPage() {
       {user && (
         <AuraContent 
           mood={userMood} 
-          globalCount={activeCount} 
-          countries={activeCountries} 
+          globalPercentage={globalPercentage}
+          localPercentage={localPercentage}
+          countryCode={userCountry}
         />
       )}
 

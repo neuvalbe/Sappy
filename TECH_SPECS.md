@@ -40,7 +40,7 @@
 | `SappyAuthView.swift` | 165 | Email/password auth sheet |
 | `SappyLegalView.swift` | 133 | Terms of Service + Privacy Policy |
 | `TrackingView.swift` | 373 | Cinematic mood selection + feedback |
-| `TrackingViewModel.swift` | 375 | Firestore sync, atomic vote, account lifecycle |
+| `TrackingViewModel.swift` | 375 | Firestore sync, atomic vote, local/global % calculations |
 | `SappySettingsView.swift` | 251 | Sign-out + delete account UI |
 | `SappyLogoShape.swift` | 68 | SVG path data for `:)` / `:(` |
 
@@ -143,7 +143,7 @@ page.tsx mount
         ├── onSnapshot(metrics/global_counts) → globalStats state
         └── Render:
               ├── AuraBackground (mood-reactive orbital gradients)
-              ├── AuraContent (mood word + stats overlay)
+              ├── AuraContent (mood word + dual global/local % overlay)
               └── ProfileDrawer (slide-out from right)
 ```
 
@@ -251,5 +251,5 @@ Rule source: `firestore.rules`
 | No "Forgot Password?" | Not implemented | Needs `Auth.auth().sendPasswordReset(withEmail:)` on iOS |
 | Sign-in only on web | By design | Account creation happens exclusively on iOS |
 | No offline support on web | By design | Web companion requires network for Firestore listeners |
-| Public legal pages | Not deployed | Terms/Privacy should be accessible without auth for App Store |
+| Public legal pages | Done | `/terms` and `/privacy` routes accessible without auth |
 | App Store screenshots | Not created | Required: 6.7" + 6.5" mandatory sizes |

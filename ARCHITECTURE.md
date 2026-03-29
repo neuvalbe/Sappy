@@ -127,7 +127,7 @@ layout.tsx                          → Root: Dela Gothic One font, black bg
         ├── NOT authed → AuthModal  → Email/password sign-in (no sign-up)
         └── authed → Firestore listeners
               ├── AuraBackground     → Orbital gradients + SVG noise
-              ├── AuraContent        → Mood word, stats, country pills
+              ├── AuraContent        → Mood word, global % & local % metrics
               └── ProfileDrawer      → User info, legal, support, delete
 ```
 
@@ -141,7 +141,7 @@ layout.tsx                          → Root: Dela Gothic One font, black bg
 | `app/globals.css` | Tailwind config + custom font-face |
 | `components/AuthModal.tsx` | Sign-in only form (email + password) |
 | `components/AuraBackground.tsx` | Framer Motion orbital gradients + SVG noise filter |
-| `components/AuraContent.tsx` | Typography overlay: mood, subtitle, stats, country breakdown |
+| `components/AuraContent.tsx` | Typography overlay: mood, subtitle, global & local % metrics |
 | `components/ProfileDrawer.tsx` | Profile info, legal (Terms/Privacy), support, account mgmt |
 
 ### Page State Machine (`page.tsx`)

@@ -20,8 +20,8 @@ The brand identity is the `):)` logo — two mirrored arcs sharing colon eyes.
 
 ### iOS App
 - **One-tap voting** — Choose happy or sad with a single tap
-- **Real-time global counter** — See how many people feel the same way, right now
-- **Country breakdown** — Per-country mood stats displayed as capsules (ISO 3166-1 alpha-2)
+- **Real-time global percentage** — See what percentage of the world feels the same way, right now
+- **Local percentage** — Per-country mood stats dynamically calculated against local votes
 - **Cinematic UI** — Physics-based spring animations, breathing idle state, staggered reveals
 - **Mood-colored subtitles** — Brand yellow glow (happy), steel blue glow (sad)
 - **Cross-device sync** — Vote state follows your account, not your device
@@ -82,7 +82,7 @@ Sappy/
 │   │   ├── components/
 │   │   │   ├── AuthModal.tsx       # Sign-in only (no sign-up) email/password form
 │   │   │   ├── AuraBackground.tsx  # Framer Motion orbital gradients + SVG noise filter
-│   │   │   ├── AuraContent.tsx     # Typography overlay: mood word, global stats, country pills
+│   │   │   ├── AuraContent.tsx     # Typography overlay: mood word, dual global/local % stats
 │   │   │   └── ProfileDrawer.tsx   # Profile, legal docs, support, sign-out, delete account
 │   │   └── lib/
 │   │       └── firebase.ts         # Firebase init from env vars

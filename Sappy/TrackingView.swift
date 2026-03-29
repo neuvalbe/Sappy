@@ -277,15 +277,13 @@ struct TrackingView: View {
     private func feedbackContent(for mode: Mood) -> some View {
         VStack(spacing: 40) {
 
-            // Real-time counter (live) - guaranteed to be at least 1 since they just voted
-            let count = max(1, mode == .happy ? viewModel.globalHappyCount : viewModel.globalSadCount)
-
+            // Primary Metric: Global Percentage
             VStack(spacing: 8) {
-                Text("\(count.formatted()) \(count == 1 ? "person" : "people")")
+                Text("\(viewModel.globalPercentage)% of the world")
                     .font(.custom(SappyDesign.fontFamily, size: 24))
                     .foregroundColor(mode == .happy ? .white : .black.opacity(0.85))
 
-                Text("\(count == 1 ? "feels" : "feel") \(mode.rawValue) right now")
+                Text("feels \(mode.rawValue) right now")
                     .font(.custom(SappyDesign.fontFamily, size: 16))
                     .foregroundColor(mode == .happy ? Color(red: 0.99, green: 0.87, blue: 0.03) : Color(red: 0.4, green: 0.55, blue: 0.78))
                     .shadow(color: mode == .happy ? Color(red: 0.99, green: 0.87, blue: 0.03).opacity(0.6) : Color(red: 0.4, green: 0.55, blue: 0.78).opacity(0.5), radius: 8, x: 0, y: 0)
@@ -293,51 +291,16 @@ struct TrackingView: View {
             .offset(y: showFeedbackText ? 0 : 20)
             .animation(.easeOut(duration: 0.8).delay(0.1), value: showFeedbackText)
 
-            // Country Breakdown Tracker
-            // Guardrail: if the snapshot hasn't delivered country data yet
-            // (async timing), show the user's own country with count 1.
-            // The snapshot listener will overwrite this within milliseconds.
-            let rawStats: [(String, Int)] = mode == .happy
-                ? viewModel.happyCountryStats
-                : viewModel.sadCountryStats
-
-            let countryStats: [(String, Int)] = {
-                if rawStats.isEmpty, let currentMood = viewModel.currentMood, currentMood == mode {
-                    let country = UserDefaults.standard.string(forKey: "userCountry") ?? ""
-                    if !country.isEmpty { return [(country, 1)] }
-                }
-                return rawStats
-            }()
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 20) {
-                    Spacer().frame(width: 8)
-                    ForEach(0..<countryStats.count, id: \.self) { i in
-                        let code = countryStats[i].0
-                        let count = countryStats[i].1
-                        HStack(spacing: 6) {
-                            Text(code.uppercased())
-                                .font(.custom(SappyDesign.fontFamily, size: 11))
-                                .fontWeight(.semibold)
-                                .kerning(1.0)
-                                .foregroundColor(mode == .happy ? .white : .black.opacity(0.7))
-                            Text("\(count)")
-                                .font(.custom(SappyDesign.fontFamily, size: 11))
-                                .foregroundColor(mode == .happy ? .white.opacity(0.5) : .black.opacity(0.4))
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(
-                            Capsule()
-                                .fill(mode == .happy ? Color.white.opacity(0.1) : Color.black.opacity(0.06))
-                        )
-                    }
-                    Spacer().frame(width: 8)
-                }
-            }
-            .frame(height: 40)
-            .offset(y: showFeedbackText ? 0 : 20)
-            .animation(.easeOut(duration: 0.8).delay(0.2), value: showFeedbackText)
+            // Secondary Metric: Local Percentage
+            let countryName = Locale.current.localizedString(forRegionCode: viewModel.activeCountry) ?? viewModel.activeCountry
+            
+            Text("\(viewModel.localPercentage)% of people in \(countryName) also feel \(mode.rawValue)")
+                .font(.custom(SappyDesign.fontFamily, size: 14))
+                .foregroundColor(mode == .happy ? .white.opacity(0.7) : .black.opacity(0.6))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 20)
+                .offset(y: showFeedbackText ? 0 : 20)
+                .animation(.easeOut(duration: 0.8).delay(0.2), value: showFeedbackText)
 
             // Change answer button
             Button(action: resetMood) {

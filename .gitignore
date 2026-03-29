@@ -20,10 +20,15 @@ build/
 *.dSYM.zip
 *.dSYM
 
-# Node.js (Firebase CLI / scripts)
-node_modules/
-package.json
-package-lock.json
+# Node.js — root-level only (Firebase CLI / scripts)
+/node_modules/
+/package.json
+/package-lock.json
+
+# Web app build artifacts
+web/node_modules/
+web/.next/
+web/out/
 
 # Credentials — NEVER commit
 serviceAccountKey.json

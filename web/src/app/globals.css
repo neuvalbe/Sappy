@@ -1,0 +1,20 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #000000;
+  --color-background-light: #FFFFFF;
+  --color-foreground: #33322E;
+  --color-foreground-light: #FFFFFF;
+  --color-accent-happy: rgb(253, 222, 8);
+  --color-accent-sad: rgb(102, 140, 199);
+}
+
+body {
+  overflow: hidden;
+  height: 100dvh;
+  width: 100vw;
+  background-color: var(--color-background);
+  color: var(--color-foreground-light);
+  margin: 0;
+  padding: 0;
+}

@@ -1,89 +1,255 @@
-# Sappy
+# Sappy Technical Specifications
 
-## Tech Specs & Session Log
-**Last Updated**: March 27, 2026 (v2.1)
+> Source of truth: **the code**. This document describes.
 
-### 1. Goal
-A minimalist iOS mood-tracking app with a cinematic, physics-based experience. Users authenticate, then choose whether they're happy or sad via interactive face taps. The app responds with an empathetic message and a live global mood counter with per-country breakdown. The identity revolves around the `):)` logo — a merged sad `):(` and happy `(:)` face sharing colon eyes.
+---
 
-### 2. Current Architecture (v2.0)
+## System Overview
 
-| File | Role |
+| Attribute | Value |
 |---|---|
-| `SappyApp.swift` | App entry point (`@main`), custom font registration with error logging |
-| `SappyDesignTokens.swift` | Shared types (`AppState`, `Mood`), `SquishableButtonStyle`, `SappyDesign` token namespace, `flagEmoji` helper |
-| `TrackingViewModel.swift` | `ObservableObject`: atomic `WriteBatch` vote/retract, sequential `deleteAccount()`, per-user Firestore doc sync, self-healing seeding, snapshot listener, 0.6s cooldown |
-| `ContentView.swift` | Root state router — crossfades between `.login` and `.tracking`, passes `appState` binding |
-| `AuthHelper.swift` | Centralized post-authentication logic: haptic, UX flag, country persist to Firestore, state transition |
-| `LoginView.swift` | 2-step auth: country picker (ISO codes, A→Z) → Sign In with Apple (Firebase credential) / Sappy email |
-| `SappyAuthView.swift` | Email/password auth sheet (sign-up + sign-in toggle) |
-| `SappySettingsView.swift` | Account management: sign-out + account deletion (App Store 5.1.1(v)) |
-| `SappyLegalView.swift` | Terms of Service & Privacy Policy modal |
-| `TrackingView.swift` | Cinematic mood selection + feedback with real-time country capsules (optimistic guardrail), settings gear overlay |
-| `SappyLogoShape.swift` | `Shape` conformance — SVG cubic Bézier path data for `):)` logo |
+| **Product** | Sappy — minimalist mood tracker |
+| **Platforms** | iOS 17+ (primary), Web (companion mirror) |
+| **Backend** | Firebase (Auth + Firestore + Hosting) |
+| **Project ID** | `sappy-caa9e` |
+| **Region** | `eur3` (Europe) |
+| **Architecture** | iOS: MVVM · Web: Component tree with Firestore listeners |
 
-### 3. State Flow
-```
-.login → (auth) → .tracking
-                      ├── cinematic entrance (draw → split → breathe)
-                      ├── mood select (tap face → feedback + country capsules)
-                      ├── reset ("change my answer" → spring back)
-                      └── settings → sign out → .login
-                                   → delete account → .login
-```
-If `Auth.auth().currentUser` exists on launch, `.login` is skipped and the app goes directly to `.tracking`.
+---
 
-### 4. Design Tokens (SappyDesign namespace)
-- **Background**: Pure white (`#FFFFFF`)
-- **Text primary**: `Color(white: 0.1)` ≈ `#1A1A1A`
-- **Brand gradient**: `#FF3333 → #CC0000` (selected mood faces)
-- **Logo stroke**: 6pt (login), 10pt (tracking), round caps/joins
-- **Typography**: Dela Gothic One universally
-- **Button style**: `SquishableButtonStyle` — 0.96 scale on press, 0.2s ease-out
-- **Mood subtitle colors**: Brand yellow `#FDDE08` (happy) with warm glow, steel blue `#668CC7` (sad) with cool glow — `shadow(radius: 8)`
-- **Haptics**: `.soft` (split), `.rigid` (mood select), `.medium` (reset, continue), `.success/.error` (auth)
-- **Layout**: 56px buttons, 16px corners, 32px horizontal padding
+## iOS Technical Specs
 
-### 5. Assets
-| File | Description |
-|---|---|
-| `SappyLogo.svg` | Black stroke logo, 80×80 viewBox (project root) |
-| `DelaGothicOne-Regular.ttf` | Bundled brand typeface |
+### Dependencies
 
-### 6. Components
-| Component | File | Description |
+| Dependency | Version | Purpose |
 |---|---|---|
-| `SappyTextField` | `SappyAuthView.swift` | Branded text/secure field with consistent input styling |
-| `SappySettingsView` | `SappySettingsView.swift` | Account management: sign-out, account deletion with confirmation |
-| `LegalSection` | `SappyLegalView.swift` | Titled paragraph block for legal documents |
-| `LegalParagraph` | `SappyLegalView.swift` | Standalone body paragraph with legal styling |
-| `SquishableButtonStyle` | `SappyDesignTokens.swift` | Tactile press-scale button style, used globally |
+| Firebase iOS SDK | 11.x | Auth, Firestore |
+| SwiftUI | iOS 17+ | UI framework |
+| AuthenticationServices | iOS 17+ | Sign In with Apple |
+| Swift | 5.9+ | Language |
 
-### 7. Data Architecture (v2.0)
+### File → Responsibility Map
 
-**Firestore Collections:**
-| Collection | Document | Purpose | Access |
+| File | LOC (approx) | Role |
+|---|---|---|
+| `SappyApp.swift` | 25 | @main entry, font registration |
+| `SappyDesignTokens.swift` | 149 | Types, color tokens, `SquishableButtonStyle` |
+| `ContentView.swift` | 42 | Root state router (`.login` ↔ `.tracking`) |
+| `AuthHelper.swift` | 69 | Post-auth: country persist → state transition |
+| `LoginView.swift` | 182 | 2-step auth: country picker → sign-in options |
+| `SappyAuthView.swift` | 165 | Email/password auth sheet |
+| `SappyLegalView.swift` | 133 | Terms of Service + Privacy Policy |
+| `TrackingView.swift` | 373 | Cinematic mood selection + feedback |
+| `TrackingViewModel.swift` | 375 | Firestore sync, atomic vote, account lifecycle |
+| `SappySettingsView.swift` | 251 | Sign-out + delete account UI |
+| `SappyLogoShape.swift` | 68 | SVG path data for `:)` / `:(` |
+
+### State Flow (iOS)
+
+```
+App Launch
+  │
+  ├── Auth.auth().currentUser != nil
+  │     └── AppState = .tracking
+  │           └── TrackingViewModel.init()
+  │                 ├── listenToUserMood()    → onSnapshot(users/{uid})
+  │                 └── listenToGlobalCounts() → onSnapshot(metrics/global_counts)
+  │
+  └── Auth.auth().currentUser == nil
+        └── AppState = .login
+              └── LoginView
+                    ├── Country picker (ISO 3166-1)
+                    ├── Sign In with Apple
+                    └── Email/Password → SappyAuthView
+                          └── AuthHelper.handlePostAuth()
+                                ├── Persist country to users/{uid}
+                                └── AppState = .tracking
+```
+
+### Vote Logic (iOS)
+
+```swift
+submitVote(_ mood: Mood):
+  1. Cooldown check (0.6s debounce)
+  2. If same mood → retractVote() (toggle off)
+  3. If different mood → retractVote() first, then submit new
+  4. WriteBatch:
+     - metrics/global_counts.total_{mood} += 1
+     - metrics/global_counts.countries.{CC}.{mood} += 1
+     - users/{uid}.mood = "{mood}"
+     - users/{uid}.updatedAt = serverTimestamp()
+  5. batch.commit()
+
+retractVote():
+  1. Guard: currentMood must be "happy" or "sad"
+  2. Guard: userCountry must exist
+  3. WriteBatch:
+     - metrics/global_counts.total_{mood} -= 1 (floored to 0)
+     - metrics/global_counts.countries.{CC}.{mood} -= 1 (floored to 0)
+     - users/{uid}.mood = ""
+     - users/{uid}.updatedAt = serverTimestamp()
+  4. batch.commit()
+```
+
+---
+
+## Web Companion Technical Specs
+
+### Dependencies
+
+| Dependency | Version | Purpose |
+|---|---|---|
+| Next.js | 16.2.1 | Framework (static export) |
+| React | 19.x | UI library |
+| TypeScript | 6.x | Language |
+| Tailwind CSS | 4.x | Styling |
+| Framer Motion | 12.x | Animations |
+| Firebase JS SDK | 11.x | Auth + Firestore |
+
+### Build & Output
+
+| Config | Value |
+|---|---|
+| `output` | `"export"` (static HTML/JS/CSS) |
+| `images.unoptimized` | `true` (no Node.js image server) |
+| Output directory | `web/out/` |
+| Hosting target | Firebase Hosting (`"public": "web/out"`) |
+
+### File → Responsibility Map
+
+| File | LOC (approx) | Role |
+|---|---|---|
+| `lib/firebase.ts` | 15 | Firebase SDK init from env vars |
+| `app/layout.tsx` | 28 | Root layout, Dela Gothic One font |
+| `app/page.tsx` | 146 | State machine: auth → listeners → render |
+| `app/globals.css` | 25 | Tailwind config + overrides |
+| `components/AuthModal.tsx` | 120 | Sign-in only form (no sign-up) |
+| `components/AuraBackground.tsx` | 90 | Orbital gradients + SVG noise |
+| `components/AuraContent.tsx` | 160 | Mood typography + stats + countries |
+| `components/ProfileDrawer.tsx` | 480 | Profile, legal, support, account mgmt |
+
+### State Flow (Web)
+
+```
+page.tsx mount
+  │
+  ├── onAuthStateChanged(null)
+  │     └── Show AuthModal (sign-in only, no sign-up)
+  │           └── signInWithEmailAndPassword()
+  │                 └── onAuthStateChanged(user) → ↓
+  │
+  └── onAuthStateChanged(user)
+        ├── onSnapshot(users/{uid})           → userMood state
+        ├── onSnapshot(metrics/global_counts) → globalStats state
+        └── Render:
+              ├── AuraBackground (mood-reactive orbital gradients)
+              ├── AuraContent (mood word + stats overlay)
+              └── ProfileDrawer (slide-out from right)
+```
+
+### Account Deletion (Web — mirrors iOS)
+
+```typescript
+handleDeleteAccount():
+  1. getDoc(users/{uid}) → read current mood + country
+  2. If mood is "happy" or "sad":
+     WriteBatch:
+       - metrics/global_counts.total_{mood} -= 1
+       - metrics/global_counts.countries.{CC}.{mood} -= 1
+       - users/{uid}.mood = ""
+       - users/{uid}.updatedAt = serverTimestamp()
+     batch.commit()
+  3. deleteDoc(users/{uid})
+  4. deleteUser(auth) ← LAST (invalidates token)
+```
+
+> **Critical**: Steps 2-3 require valid auth. Step 4 destroys auth. Reordering = `permission-denied` + orphaned data.
+
+---
+
+## Firestore Data Schema
+
+### `metrics/global_counts`
+
+```
+{
+  total_happy: Int,           // Global happy vote count
+  total_sad: Int,             // Global sad vote count
+  countries: {
+    "US": { happy: Int, sad: Int },
+    "BE": { happy: Int, sad: Int },
+    ...
+  }
+}
+```
+
+**Access**: Public read, authenticated write with field whitelist
+
+### `users/{uid}`
+
+```
+{
+  mood: "happy" | "sad" | "",   // Current vote state
+  country: "US",                // ISO 3166-1 alpha-2
+  updatedAt: Timestamp          // Server timestamp
+}
+```
+
+**Access**: Owner read/write only (`auth.uid == userId`)
+
+---
+
+## Security Rules Summary
+
+| Collection | Read | Write | Validation |
 |---|---|---|---|
-| `metrics` | `global_counts` | Aggregated mood totals + per-country breakdown | Public read, auth write (field-validated) |
-| `users` | `{uid}` | Per-user vote state (mood, country, updatedAt) | Owner read/write only |
+| `metrics/{doc}` | Anyone | Authenticated | Field whitelist: `total_happy`, `total_sad`, `countries`. Type: `int` for counters. |
+| `users/{userId}` | Owner only | Owner only | `auth.uid == userId` |
+| `/{everything_else}` | Denied | Denied | — |
 
-**State Distribution:**
-| Store | Contains | Lifecycle |
+Rule source: `firestore.rules`
+
+---
+
+## Resilience Features
+
+| Feature | Platform | Implementation |
 |---|---|---|
-| Firebase Auth (Keychain) | Auth session | Survives app reinstall |
-| UserDefaults | `currentMood`, `userCountry`, `hasCompletedFirstSignUp` | Cache only — Firestore is truth |
-| Firestore `users/{uid}` | `mood`, `country`, `updatedAt` | Source of truth for vote state |
+| Atomic writes | Both | `WriteBatch` (user + global in one commit) |
+| Sequential delete | Both | retract → doc delete → auth delete |
+| Count flooring | Both | `max(0, ...)` prevents negative counters |
+| Vote cooldown | iOS only | 0.6s debounce via `allowInteraction` flag |
+| Optimistic country | iOS only | Shows country immediately before snapshot |
+| Self-healing seed | iOS only | Creates `global_counts` if missing |
+| State migration | iOS only | Pre-v1.5 UserDefaults → Firestore |
+| Error logging | Both | `[Sappy]`-prefixed console messages |
 
-**Resilience (v2.0):**
-- Atomic `WriteBatch` for all multi-document mutations (vote, retract, delete)
-- Sequential `deleteAccount()` with chained callbacks (retract → doc delete → auth delete)
-- Error logging on all Firestore write paths via `[Sappy]`-prefixed console messages
-- Field-validated security rules on `metrics` (only known fields, integer types)
-- Vote cooldown (0.6s) prevents rapid-tap race conditions
-- `max(0, ...)` count flooring handles transient negatives
-- Optimistic country guardrail in UI bridges async snapshot gap
-- Self-healing document seeding if `global_counts` is missing
-- Automatic migration of pre-v1.5 UserDefaults-only state to Firestore
+---
 
-### 8. Status
-Fully connected to Firebase backend (`sappy-caa9e`, region `eur3`). Auth: Sign In with Apple (Firebase OAuthProvider credential with nonce) + Email/Password via centralized `AuthHelper`. Firestore security rules deployed with field-validated metrics and per-user document access control. `TrackingViewModel` uses atomic `WriteBatch` for all multi-document writes and sequential chaining for account deletion. Per-user Firestore documents (`users/{uid}`) provide cross-device vote deduplication. Sign-out preserves `hasCompletedFirstSignUp` and `userCountry` so returning users skip the country picker. Account deletion performs sequential retract → doc delete → auth delete → full local wipe. Android (React Native / Kotlin) replication guide in `ARCHITECTURE.md` Section 9–10.
+## Environment Configuration
+
+### iOS
+- `GoogleService-Info.plist` — Firebase credentials (bundled in target, gitignored)
+
+### Web
+- `web/.env.local` — Firebase credentials (gitignored)
+  ```
+  NEXT_PUBLIC_FIREBASE_API_KEY=...
+  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=...
+  NEXT_PUBLIC_FIREBASE_PROJECT_ID=sappy-caa9e
+  NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=...
+  NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
+  NEXT_PUBLIC_FIREBASE_APP_ID=...
+  ```
+
+---
+
+## Known Limitations
+
+| Item | Status | Detail |
+|---|---|---|
+| No "Forgot Password?" | Not implemented | Needs `Auth.auth().sendPasswordReset(withEmail:)` on iOS |
+| Sign-in only on web | By design | Account creation happens exclusively on iOS |
+| No offline support on web | By design | Web companion requires network for Firestore listeners |
+| Public legal pages | Not deployed | Terms/Privacy should be accessible without auth for App Store |
+| App Store screenshots | Not created | Required: 6.7" + 6.5" mandatory sizes |

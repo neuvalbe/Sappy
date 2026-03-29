@@ -25,12 +25,12 @@ import SwiftUI
 /// |-------------|----------------|---------------|
 /// | `drawRight` | Right arc      | `)` — happy   |
 /// | `drawColon` | Two dots       | `:` — eyes    |
-/// | `drawLeft`  | Left arc       | `(` — sad     |
+/// | `drawLeft`  | Left arc       | `)` — sad     |
 ///
 /// ### Composition Examples
-/// - **Full logo** `):(`: `drawLeft: true, drawColon: true, drawRight: true`
+/// - **Full logo** `):)`: `drawLeft: true, drawColon: true, drawRight: true`
 /// - **Happy face** `:)`: `drawLeft: false, drawColon: true, drawRight: true`
-/// - **Sad face** `:(`: `drawLeft: true, drawColon: true, drawRight: false`
+/// - **Sad face** `):`: `drawLeft: true, drawColon: true, drawRight: false`
 ///
 /// ## Static Bounds Contract
 /// `fullBounds` is hardcoded to the union bounding box of all three sub-paths.
@@ -96,7 +96,7 @@ struct SappyLogoShape: Shape {
             path.closeSubpath()
         }
 
-        // MARK: Left Arc `(` — Sad
+        // MARK: Left Arc `)` — Sad
 
         if drawLeft {
             path.move(to: CGPoint(x: 227.447495, y: 264.841003))

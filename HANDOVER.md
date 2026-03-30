@@ -240,3 +240,4 @@ NEXT_PUBLIC_FIREBASE_APP_ID=
 | 2026-03-29 | Web Finalization | WriteBatch deletion fix, static export config, TS6 compat, dead code purge, doc sync |
 | 2026-03-29 | Cross-Platform Features | Forgot Password inline UI morphing on iOS `SappyAuthView` & Web `AuthModal` |
 | 2026-03-29 | Cross-Platform Features | Global & Local Percentage Tracking (Replaced capsules with dual `%` UI) |
+| 2026-03-30 | iOS Bug Fixes | Fixed phantom decrements: unconditional startSync over UserDefaults, commit-gated local state, purged migration path |

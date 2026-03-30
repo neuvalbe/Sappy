@@ -1,6 +1,7 @@
 # Sappy Architecture Guide
 
 > Living document. Source of truth: **the code**. This document describes, it does not define.
+> **Note:** The architecture is currently being migrated to V2 to support Cloud Functions for security and massive concurrency.
 
 ---
 

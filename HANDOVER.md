@@ -175,7 +175,6 @@ Step 4: deleteUser(auth) ← LAST (invalidates token)
 
 | Item | Priority | Detail |
 |---|---|---|
-| **"Forgot Password"** | MEDIUM | Not implemented on either platform. Needs `Auth.auth().sendPasswordReset(withEmail:)` on iOS, `sendPasswordResetEmail()` on web. |
 | **App Store screenshots** | HIGH | Required for submission: 6.7" and 6.5" mandatory. Not created yet. |
 | **App Store metadata** | HIGH | Description, keywords, category, age rating not filled in Connect. |
 

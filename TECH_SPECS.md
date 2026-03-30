@@ -248,7 +248,6 @@ Rule source: `firestore.rules`
 
 | Item | Status | Detail |
 |---|---|---|
-| No "Forgot Password?" | Not implemented | Needs `Auth.auth().sendPasswordReset(withEmail:)` on iOS |
 | Sign-in only on web | By design | Account creation happens exclusively on iOS |
 | No offline support on web | By design | Web companion requires network for Firestore listeners |
 | Public legal pages | Done | `/terms` and `/privacy` routes accessible without auth |

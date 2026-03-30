@@ -78,7 +78,9 @@ Sappy/
 │   │   ├── app/
 │   │   │   ├── layout.tsx          # Root layout, Dela Gothic One via Google Fonts
 │   │   │   ├── page.tsx            # State machine: auth → Firestore listeners → Aura
-│   │   │   └── globals.css         # Tailwind + custom font-face
+│   │   │   ├── globals.css         # Tailwind + custom font-face
+│   │   │   ├── terms/page.tsx      # Public Terms of Service (no auth required)
+│   │   │   └── privacy/page.tsx    # Public Privacy Policy (no auth required)
 │   │   ├── components/
 │   │   │   ├── AuthModal.tsx       # Sign-in only (no sign-up) email/password form
 │   │   │   ├── AuraBackground.tsx  # Framer Motion orbital gradients + SVG noise filter
@@ -141,7 +143,6 @@ users/{uid}                        ← Per-user vote state (owner access only)
 - **Count flooring** — `max(0, ...)` / `Math.max(0, ...)` handles transient negatives
 - **Optimistic country guardrail** (iOS) — Shows user's country immediately before snapshot arrives
 - **Self-healing seed** (iOS) — Creates `global_counts` if missing
-- **State migration** (iOS) — Pre-v1.5 UserDefaults data auto-migrates to Firestore
 
 ---
 
@@ -173,7 +174,7 @@ match /users/{userId} {
 
 ### Web Companion
 1. `cd web && npm install`
-2. Create `.env.local` with Firebase credentials (see `.env.local.example`)
+2. Ensure `web/.env.local` exists with Firebase credentials (see Environment section below)
 3. `npm run dev` — local development at `localhost:3000`
 4. `npm run build` — static export to `web/out/`
 5. `firebase deploy --only hosting` — deploy to Firebase Hosting (from project root)
@@ -204,7 +205,7 @@ match /users/{userId} {
 
 | File | Contents |
 |---|---|
-| `ARCHITECTURE.md` | Full architecture guide + React Native replication spec |
+| `ARCHITECTURE.md` | Full architecture guide, data flow, and state machines |
 | `TECH_SPECS.md` | Technical specs, file roles, state flow, data architecture |
 | `HANDOVER.md` | Agent handover: workflow rules, file map, data flows, status |
 

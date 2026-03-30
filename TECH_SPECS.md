@@ -32,17 +32,17 @@
 
 | File | LOC (approx) | Role |
 |---|---|---|
-| `SappyApp.swift` | 25 | @main entry, font registration |
-| `SappyDesignTokens.swift` | 149 | Types, color tokens, `SquishableButtonStyle` |
-| `ContentView.swift` | 42 | Root state router (`.login` ↔ `.tracking`) |
-| `AuthHelper.swift` | 69 | Post-auth: country persist → state transition |
-| `LoginView.swift` | 182 | 2-step auth: country picker → sign-in options |
-| `SappyAuthView.swift` | 165 | Email/password auth sheet |
-| `SappyLegalView.swift` | 133 | Terms of Service + Privacy Policy |
-| `TrackingView.swift` | 373 | Cinematic mood selection + feedback |
-| `TrackingViewModel.swift` | 375 | Firestore sync, atomic vote, local/global % calculations |
-| `SappySettingsView.swift` | 251 | Sign-out + delete account UI |
-| `SappyLogoShape.swift` | 68 | SVG path data for `:)` / `:(` |
+| `SappyApp.swift` | 43 | @main entry, font registration |
+| `SappyDesignTokens.swift` | 148 | Types, color tokens, `SquishableButtonStyle` |
+| `ContentView.swift` | 41 | Root state router (`.login` ↔ `.tracking`) |
+| `AuthHelper.swift` | 68 | Post-auth: country persist → state transition |
+| `LoginView.swift` | 356 | 2-step auth: country picker → sign-in options |
+| `SappyAuthView.swift` | 333 | Email/password auth sheet |
+| `SappyLegalView.swift` | 132 | Terms of Service + Privacy Policy |
+| `TrackingView.swift` | 322 | Cinematic mood selection + feedback |
+| `TrackingViewModel.swift` | 407 | Firestore sync, atomic vote, local/global % calculations |
+| `SappySettingsView.swift` | 250 | Sign-out + delete account UI |
+| `SappyLogoShape.swift` | 151 | SVG path data for `:)` / `:(` |
 
 ### State Flow (iOS)
 
@@ -52,8 +52,10 @@ App Launch
   ├── Auth.auth().currentUser != nil
   │     └── AppState = .tracking
   │           └── TrackingViewModel.init()
-  │                 ├── listenToUserMood()    → onSnapshot(users/{uid})
-  │                 └── listenToGlobalCounts() → onSnapshot(metrics/global_counts)
+  │                 └── startSync()
+  │                       ├── getDocument(users/{uid})  → hydrates storedMood + storedCountry
+  │                       └── ensureGlobalDocAndListen()
+  │                             └── attachListener()    → addSnapshotListener(metrics/global_counts)
   │
   └── Auth.auth().currentUser == nil
         └── AppState = .login
@@ -69,23 +71,30 @@ App Launch
 ### Vote Logic (iOS)
 
 ```swift
-submitVote(_ mood: Mood):
-  1. Cooldown check (0.6s debounce)
-  2. If same mood → retractVote() (toggle off)
-  3. If different mood → retractVote() first, then submit new
-  4. WriteBatch:
-     - metrics/global_counts.total_{mood} += 1
-     - metrics/global_counts.countries.{CC}.{mood} += 1
-     - users/{uid}.mood = "{mood}"
-     - users/{uid}.updatedAt = serverTimestamp()
-  5. batch.commit()
+vote(mood: Mood):
+  1. Guard: same mood as current → no-op (votes are locked in)
+  2. Guard: isVoteCooldown → reject (0.6s debounce)
+  3. Guard: user must be authenticated
+  4. WriteBatch (atomic — all-or-nothing):
+     IF previousMood exists (swap):
+       - metrics/global_counts.total_{oldMood} -= 1
+       - metrics/global_counts.countries.{CC}.{oldMood} -= 1
+       - metrics/global_counts.total_{newMood} += 1
+       - metrics/global_counts.countries.{CC}.{newMood} += 1
+     ELSE (first vote):
+       - metrics/global_counts.total_{mood} += 1
+       - metrics/global_counts.countries.{CC}.{mood} += 1
+     ALWAYS:
+       - users/{uid}.mood = "{mood}"
+       - users/{uid}.updatedAt = serverTimestamp()
+  5. batch.commit() → on success: update storedMood locally
 
-retractVote():
+retractVote() (private — signOut + deleteAccount only):
   1. Guard: currentMood must be "happy" or "sad"
-  2. Guard: userCountry must exist
-  3. WriteBatch:
-     - metrics/global_counts.total_{mood} -= 1 (floored to 0)
-     - metrics/global_counts.countries.{CC}.{mood} -= 1 (floored to 0)
+  2. Guard: user must be authenticated
+  3. WriteBatch (atomic):
+     - metrics/global_counts.total_{mood} -= 1
+     - metrics/global_counts.countries.{CC}.{mood} -= 1
      - users/{uid}.mood = ""
      - users/{uid}.updatedAt = serverTimestamp()
   4. batch.commit()
@@ -119,14 +128,16 @@ retractVote():
 
 | File | LOC (approx) | Role |
 |---|---|---|
-| `lib/firebase.ts` | 15 | Firebase SDK init from env vars |
+| `lib/firebase.ts` | 18 | Firebase SDK init from env vars |
 | `app/layout.tsx` | 28 | Root layout, Dela Gothic One font |
-| `app/page.tsx` | 146 | State machine: auth → listeners → render |
-| `app/globals.css` | 25 | Tailwind config + overrides |
-| `components/AuthModal.tsx` | 120 | Sign-in only form (no sign-up) |
-| `components/AuraBackground.tsx` | 90 | Orbital gradients + SVG noise |
-| `components/AuraContent.tsx` | 160 | Mood typography + stats + countries |
-| `components/ProfileDrawer.tsx` | 480 | Profile, legal, support, account mgmt |
+| `app/page.tsx` | 153 | State machine: auth → listeners → render |
+| `app/globals.css` | 20 | Tailwind config + overrides |
+| `app/terms/page.tsx` | 93 | Public Terms of Service (no auth required) |
+| `app/privacy/page.tsx` | 92 | Public Privacy Policy (no auth required) |
+| `components/AuthModal.tsx` | 165 | Sign-in only form (no sign-up) |
+| `components/AuraBackground.tsx` | 117 | Orbital gradients + SVG noise |
+| `components/AuraContent.tsx` | 143 | Mood typography + stats + countries |
+| `components/ProfileDrawer.tsx` | 481 | Profile, legal, support, account mgmt |
 
 ### State Flow (Web)
 
@@ -218,10 +229,9 @@ Rule source: `firestore.rules`
 | Atomic writes | Both | `WriteBatch` (user + global in one commit) |
 | Sequential delete | Both | retract → doc delete → auth delete |
 | Count flooring | Both | `max(0, ...)` prevents negative counters |
-| Vote cooldown | iOS only | 0.6s debounce via `allowInteraction` flag |
+| Vote cooldown | iOS only | 0.6s debounce via `isVoteCooldown` flag |
 | Optimistic country | iOS only | Shows country immediately before snapshot |
 | Self-healing seed | iOS only | Creates `global_counts` if missing |
-| State migration | iOS only | Pre-v1.5 UserDefaults → Firestore |
 | Error logging | Both | `[Sappy]`-prefixed console messages |
 
 ---

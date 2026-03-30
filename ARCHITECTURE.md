@@ -103,13 +103,14 @@ SappyApp.swift
 ### TrackingViewModel — Core Logic
 
 ```swift
-// Snapshot listeners (real-time sync)
-listenToUserMood()      → onSnapshot(users/{uid}) → updates local mood
-listenToGlobalCounts()  → onSnapshot(metrics/global_counts) → updates counters
+// Startup sync
+startSync()             → getDocument(users/{uid}) → hydrates local cache from server
+  ensureGlobalDocAndListen() → seeds global_counts if missing
+    attachListener()    → addSnapshotListener(metrics/global_counts) → updates counters
 
 // Vote logic (atomic WriteBatch)
-submitVote(mood)        → batch { increment global + set user mood } → commit
-retractVote()           → batch { decrement global + clear user mood } → commit
+vote(mood)              → batch { swap active mood or set first vote } → commit
+retractVote() [private] → batch { decrement global + clear user mood } → commit (signOut + deleteAccount only)
 
 // Account lifecycle
 deleteAccount()         → retractVote() → deleteDoc(users/{uid}) → deleteUser(auth)
@@ -173,7 +174,7 @@ INIT
 ```
 1. User taps Happy on iOS
      │
-2. TrackingViewModel.submitVote("happy")
+2. TrackingViewModel.vote("happy")
      │
 3. WriteBatch (atomic):
      ├── metrics/global_counts.total_happy += 1

@@ -134,26 +134,21 @@ final class TrackingViewModel: ObservableObject {
             }
 
             if let data = snapshot?.data() {
-                // User doc exists — hydrate local cache from server truth
+                // User doc exists — hydrate local cache from server truth.
+                // CRITICAL: Always overwrite, even if server mood is empty.
+                // This prevents stale UserDefaults from causing phantom decrements
+                // after sign-out cycles where retractVote cleared the server mood.
                 let serverMood = data["mood"] as? String ?? ""
                 let serverCountry = data["country"] as? String ?? ""
 
-                if !serverMood.isEmpty {
-                    self.storedMood = serverMood
-                }
+                self.storedMood = serverMood
                 if !serverCountry.isEmpty {
                     self.storedCountry = serverCountry
                 }
-            } else if !self.storedMood.isEmpty || !self.storedCountry.isEmpty {
-                // No user doc but local state exists — migrate to Firestore
-                var migrationData: [String: Any] = ["updatedAt": FieldValue.serverTimestamp()]
-                if !self.storedMood.isEmpty { migrationData["mood"] = self.storedMood }
-                if !self.storedCountry.isEmpty { migrationData["country"] = self.storedCountry }
-                userDocRef.setData(migrationData, merge: true) { error in
-                    if let error {
-                        print("[Sappy] Migration write failed: \(error.localizedDescription)")
-                    }
-                }
+            } else {
+                // No user doc on server — clear any stale local mood to prevent
+                // orphaned decrements. Country is kept for UX (skip country picker).
+                self.storedMood = ""
             }
 
             // Step 2: Ensure global_counts exists, then attach listener
@@ -238,7 +233,6 @@ final class TrackingViewModel: ObservableObject {
             self?.isVoteCooldown = false
         }
 
-        storedMood = mood.rawValue
         let country = userCountry
 
         // Atomic batch: user doc + global counts in one transaction
@@ -267,9 +261,16 @@ final class TrackingViewModel: ObservableObject {
             ], forDocument: docRef)
         }
 
-        batch.commit { error in
+        // CRITICAL: Only update local cache AFTER batch commits successfully.
+        // If the batch fails, storedMood stays unchanged — preventing divergence
+        // between local state and Firestore that causes phantom decrements.
+        batch.commit { [weak self] error in
             if let error {
                 print("[Sappy] Vote batch write failed: \(error.localizedDescription)")
+                return
+            }
+            Task { @MainActor [weak self] in
+                self?.storedMood = mood.rawValue
             }
         }
     }

@@ -74,6 +74,7 @@
 | `read_firestore.js` | Admin: read `global_counts` |
 | `seed_firestore.js` | Admin: wipe + re-seed |
 | `wipe_firestore.js` | Admin: reset all data |
+| `SappyLogo.svg` | Brand logo SVG source file |
 
 ### Documentation
 
@@ -91,11 +92,11 @@
 ### 1. Vote Casting (iOS only)
 
 ```
-User taps mood → TrackingViewModel.submitVote(mood)
+User taps mood → TrackingViewModel.vote(mood)
   │
-  ├── Same mood as current? → retractVote() (toggle off)
-  ├── Different mood? → retractVote() then submitVote(new)
-  └── No current mood? → submitVote(new)
+  ├── Same mood as current? → No-op (Locked in, cannot retract)
+  ├── Different mood? → Atomic swap (decrement old, increment new)
+  └── No current mood? → First vote (increment new)
   │
   WriteBatch (atomic):
     metrics/global_counts.total_{mood} += 1
@@ -109,8 +110,9 @@ User taps mood → TrackingViewModel.submitVote(mood)
 ### 2. Real-Time Sync (both platforms)
 
 ```
-iOS:  TrackingViewModel.listenToUserMood()      → onSnapshot(users/{uid})
-iOS:  TrackingViewModel.listenToGlobalCounts()   → onSnapshot(metrics/global_counts)
+iOS:  TrackingViewModel.startSync()              → getDocument(users/{uid}) → hydrates local cache
+      └── ensureGlobalDocAndListen()
+            └── attachListener()                  → addSnapshotListener(metrics/global_counts)
 Web:  page.tsx useEffect                         → onSnapshot(users/{uid})
 Web:  page.tsx useEffect                         → onSnapshot(metrics/global_counts)
 ```
@@ -140,7 +142,7 @@ Step 4: deleteUser(auth) ← LAST (invalidates token)
 - [x] Sign In with Apple + Email/Password auth
 - [x] Real-time Firestore listeners (user mood + global counts)
 - [x] Atomic vote casting with `WriteBatch`
-- [x] Vote retraction (toggle behavior)
+- [x] Vote swap (atomic mood change, no toggle/retract in normal flow)
 - [x] Vote cooldown (0.6s debounce)
 - [x] Global and Local contextual percentage displays
 - [x] Cinematic UI (spring animations, breathing idle, staggered reveals)
@@ -148,7 +150,6 @@ Step 4: deleteUser(auth) ← LAST (invalidates token)
 - [x] Terms of Service + Privacy Policy in-app
 - [x] Post-auth country persistence via `AuthHelper`
 - [x] Self-healing Firestore seed on first launch
-- [x] State migration from pre-v1.5 UserDefaults
 
 ### Web Companion
 - [x] Next.js 16 static export (`output: "export"`)
@@ -240,3 +241,4 @@ NEXT_PUBLIC_FIREBASE_APP_ID=
 | 2026-03-29 | Cross-Platform Features | Forgot Password inline UI morphing on iOS `SappyAuthView` & Web `AuthModal` |
 | 2026-03-29 | Cross-Platform Features | Global & Local Percentage Tracking (Replaced capsules with dual `%` UI) |
 | 2026-03-30 | iOS Bug Fixes | Fixed phantom decrements: unconditional startSync over UserDefaults, commit-gated local state, purged migration path |
+| 2026-03-30 | Documentation Audit | 15-item cross-reference audit: purged ghost methods, fixed vote logic pseudocode, corrected LOC counts, added missing files, removed dead references |

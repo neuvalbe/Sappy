@@ -317,6 +317,7 @@ struct SappyTextField: View {
             }
         }
         .font(.custom(SappyDesign.fontFamily, size: 16))
+        .foregroundColor(SappyDesign.textPrimary)
         .textContentType(textContentType)
         .keyboardType(keyboardType)
         .padding(.horizontal, 20)

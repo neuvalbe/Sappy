@@ -242,3 +242,4 @@ NEXT_PUBLIC_FIREBASE_APP_ID=
 | 2026-03-29 | Cross-Platform Features | Global & Local Percentage Tracking (Replaced capsules with dual `%` UI) |
 | 2026-03-30 | iOS Bug Fixes | Fixed phantom decrements: unconditional startSync over UserDefaults, commit-gated local state, purged migration path |
 | 2026-03-30 | Documentation Audit | 15-item cross-reference audit: purged ghost methods, fixed vote logic pseudocode, corrected LOC counts, added missing files, removed dead references |
+| 2026-04-04 | iOS UI & Logic Polish | Fixed invisible auth text in dark mode via explicit foregroundColor, added .blendMode(.difference) to TrackingView face animations for dynamic inversion across the split screen. |

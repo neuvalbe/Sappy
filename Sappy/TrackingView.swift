@@ -96,8 +96,6 @@ struct TrackingView: View {
                 }
             }
 
-            // MARK: Top Face — Happy :)
-
             VStack(spacing: 24) {
                 SappyLogoShape(drawLeft: false, drawColon: true, drawRight: true)
                     .trim(from: 0, to: entryTrim)
@@ -116,6 +114,7 @@ struct TrackingView: View {
                     .foregroundColor(.white)
                     .opacity(selectedMood == nil ? textOpacity : 0)
             }
+            .blendMode(.difference)
             .scaleEffect(selectedMood == nil ? breathingScale : 1.0)
             .offset(y: selectedMood == .happy
                     ? SappyDesign.selectedFaceOffset
@@ -129,7 +128,7 @@ struct TrackingView: View {
                 SappyLogoShape(drawLeft: true, drawColon: true, drawRight: false)
                     .trim(from: 0, to: entryTrim)
                     .stroke(
-                        Color.black,
+                        Color.white,
                         style: StrokeStyle(lineWidth: SappyDesign.trackingStrokeWidth, lineCap: .round, lineJoin: .round)
                     )
                     .frame(width: SappyDesign.trackingFaceSize, height: SappyDesign.trackingFaceSize)
@@ -140,9 +139,10 @@ struct TrackingView: View {
                     .fontWeight(.light)
                     .italic()
                     .kerning(1.5)
-                    .foregroundColor(.black)
+                    .foregroundColor(.white)
                     .opacity(selectedMood == nil ? textOpacity : 0)
             }
+            .blendMode(.difference)
             .scaleEffect(selectedMood == nil ? (2.0 - breathingScale) : 1.0)
             .offset(y: selectedMood == .sad
                     ? SappyDesign.selectedFaceOffset
